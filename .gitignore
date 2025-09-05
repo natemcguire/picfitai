@@ -1,0 +1,7 @@
+# Ignore local environment and runtime files
+.env
+db.sqlite
+**/uploads/**
+*.log
+.DS_Store
+.env
