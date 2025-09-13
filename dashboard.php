@@ -36,7 +36,7 @@ $transactions = $stmt->fetchAll();
     <title>Dashboard - <?= Config::get('app_name') ?></title>
     <link rel="stylesheet" href="/public/styles.css">
 </head>
-<body class="min-h-screen bg-void text-ivory">
+<body>
     <!-- Header -->
     <header class="header">
         <div class="container">
@@ -105,8 +105,8 @@ $transactions = $stmt->fetchAll();
                                         <div class="text-sm">
                                             Status: 
                                             <span class="px-sm py-xs rounded text-xs font-medium <?= 
-                                                $gen['status'] === 'completed' ? 'bg-success text-void' :
-                                                ($gen['status'] === 'failed' ? 'bg-error text-void' : 'bg-warning text-void')
+                                                $gen['status'] === 'completed' ? 'bg-green-500 text-white' :
+                                                ($gen['status'] === 'failed' ? 'bg-red-500 text-white' : 'bg-yellow-500 text-black')
                                             ?>">
                                                 <?= ucfirst($gen['status']) ?>
                                             </span>
@@ -121,7 +121,7 @@ $transactions = $stmt->fetchAll();
                                             </a>
                                         <?php endif; ?>
                                         <?php if ($gen['status'] === 'failed'): ?>
-                                            <span class="text-sm text-error">
+                                            <span class="text-sm text-red-500">
                                                 <?= htmlspecialchars($gen['error_message'] ?? 'Unknown error') ?>
                                             </span>
                                         <?php endif; ?>
@@ -176,7 +176,7 @@ $transactions = $stmt->fetchAll();
                                         <div class="font-medium"><?= htmlspecialchars($tx['description']) ?></div>
                                         <div class="text-mist"><?= date('M j', strtotime($tx['created_at'])) ?></div>
                                     </div>
-                                    <div class="<?= $tx['type'] === 'purchase' || $tx['type'] === 'bonus' ? 'text-success' : 'text-error' ?>">
+                                    <div class="<?= $tx['type'] === 'purchase' || $tx['type'] === 'bonus' ? 'text-green-500' : 'text-red-500' ?>">
                                         <?= $tx['type'] === 'purchase' || $tx['type'] === 'bonus' ? '+' : '-' ?><?= $tx['credits'] ?>
                                     </div>
                                 </div>
