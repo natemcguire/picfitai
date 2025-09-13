@@ -13,18 +13,22 @@ class AIService {
         $this->openaiApiKey = Config::get('openai_api_key', '');
     }
     
-    public function generateFit(int $userId, array $standingPhotos, array $outfitPhoto): array {
+    public function generateFit(int $userId, array $standingPhotos, array $outfitPhoto, bool $isPublic = true): array {
         $pdo = Database::getInstance();
         
+        // Generate share token for public photos
+        $shareToken = $isPublic ? bin2hex(random_bytes(16)) : null;
+
         // Create generation record
         $stmt = $pdo->prepare('
-            INSERT INTO generations (user_id, status, input_data)
-            VALUES (?, "processing", ?)
+            INSERT INTO generations (user_id, status, input_data, is_public, share_token)
+            VALUES (?, "processing", ?, ?, ?)
         ');
         $stmt->execute([$userId, json_encode([
             'standing_photos_count' => count($standingPhotos),
-            'has_outfit_photo' => !empty($outfitPhoto)
-        ])]);
+            'has_outfit_photo' => !empty($outfitPhoto),
+            'is_public' => $isPublic
+        ]), $isPublic ? 1 : 0, $shareToken]);
         
         $generationId = $pdo->lastInsertId();
         $startTime = time();
@@ -52,7 +56,10 @@ class AIService {
                 'success' => true,
                 'generation_id' => $generationId,
                 'result_url' => $result['url'],
-                'processing_time' => $processingTime
+                'processing_time' => $processingTime,
+                'is_public' => $isPublic,
+                'share_token' => $shareToken,
+                'share_url' => $shareToken ? '/share/' . $shareToken : null
             ];
             
         } catch (Exception $e) {
@@ -73,54 +80,55 @@ class AIService {
         if (empty($this->geminiApiKey)) {
             throw new Exception('Gemini API key not configured');
         }
-        
-        // Convert images to base64
-        $standingB64 = [];
-        foreach ($standingPhotos as $photo) {
-            $standingB64[] = $this->imageToBase64($photo);
-        }
+
+        // Convert images to base64 with proper MIME types
+        $standingB64 = $this->imageToBase64($standingPhotos[0]);
+        $standingMimeType = $standingPhotos[0]['type'] ?? 'image/jpeg';
+
         $outfitB64 = $this->imageToBase64($outfitPhoto);
-        
+        $outfitMimeType = $outfitPhoto['type'] ?? 'image/jpeg';
+
         $prompt = $this->getGenerationPrompt();
-        
-        // Prepare request
-        $parts = [
-            ['text' => $prompt]
-        ];
-        
-        // Add first standing photo
-        if (!empty($standingB64)) {
-            $parts[] = [
-                'inline_data' => [
-                    'mime_type' => 'image/jpeg',
-                    'data' => $standingB64[0]
-                ]
-            ];
-        }
-        
-        // Add outfit photo
-        $parts[] = [
-            'inline_data' => [
-                'mime_type' => 'image/jpeg', 
-                'data' => $outfitB64
-            ]
-        ];
-        
+
+        // Prepare request according to Gemini image generation API format
         $requestData = [
             'contents' => [[
-                'role' => 'user',
-                'parts' => $parts
+                'parts' => [
+                    ['text' => $prompt],
+                    [
+                        'inline_data' => [
+                            'mime_type' => $standingMimeType,
+                            'data' => $standingB64
+                        ]
+                    ],
+                    [
+                        'inline_data' => [
+                            'mime_type' => $outfitMimeType,
+                            'data' => $outfitB64
+                        ]
+                    ]
+                ]
             ]],
             'generationConfig' => [
-                'temperature' => 0.7,
-                'maxOutputTokens' => 2048
+                'temperature' => 0.4,
+                'maxOutputTokens' => 8192
             ]
         ];
         
+        // Log the full request structure (without base64 data for readability)
+        $debugRequest = $requestData;
+        foreach ($debugRequest['contents'][0]['parts'] as &$part) {
+            if (isset($part['inline_data']['data'])) {
+                $part['inline_data']['data'] = '[BASE64_DATA_' . strlen($part['inline_data']['data']) . '_CHARS]';
+            }
+        }
+
         Logger::info('AIService - Making Gemini API request', [
             'model' => 'gemini-2.5-flash-image-preview',
-            'parts_count' => count($parts),
-            'request_size' => strlen(json_encode($requestData))
+            'parts_count' => count($requestData['contents'][0]['parts']),
+            'request_size' => strlen(json_encode($requestData)),
+            'full_request_structure' => $debugRequest,
+            'endpoint' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent'
         ]);
         
         $response = $this->makeGeminiRequest($requestData);
@@ -131,27 +139,70 @@ class AIService {
             'candidates_count' => count($response['candidates'] ?? [])
         ]);
         
+        // FULL DEBUG: Log the entire response structure for frontend debugging
+        Logger::info('AIService - FULL Gemini Response Structure', [
+            'full_response' => $response,
+            'candidates_count' => count($response['candidates'] ?? []),
+            'first_candidate_parts' => $response['candidates'][0]['content']['parts'] ?? null
+        ]);
+
         // Check if we got an image back
         if (isset($response['candidates'][0]['content']['parts'])) {
-            foreach ($response['candidates'][0]['content']['parts'] as $part) {
+            $foundImage = false;
+            $foundText = false;
+            $textContent = '';
+
+            foreach ($response['candidates'][0]['content']['parts'] as $index => $part) {
+                Logger::info("AIService - Examining part $index", [
+                    'part_keys' => array_keys($part),
+                    'has_inline_data' => isset($part['inline_data']),
+                    'has_text' => isset($part['text']),
+                    'part_structure' => $part
+                ]);
+
+                // Check both possible formats from Gemini API
+                $imageData = null;
+                $mimeType = null;
+
                 if (isset($part['inline_data']['data'])) {
+                    $foundImage = true;
                     $imageData = $part['inline_data']['data'];
                     $mimeType = $part['inline_data']['mime_type'] ?? 'image/jpeg';
-                    
+                } elseif (isset($part['inlineData']['data'])) {
+                    $foundImage = true;
+                    $imageData = $part['inlineData']['data'];
+                    $mimeType = $part['inlineData']['mimeType'] ?? 'image/jpeg';
+                }
+
+                if ($imageData) {
+
+                    Logger::info('AIService - Found image data', [
+                        'mime_type' => $mimeType,
+                        'data_length' => strlen($imageData),
+                        'data_preview' => substr($imageData, 0, 50) . '...'
+                    ]);
+
                     // Save image and return URL
                     $filename = $this->saveGeneratedImage($imageData, $mimeType);
                     return ['url' => '/generated/' . $filename];
                 }
+
+                if (isset($part['text'])) {
+                    $foundText = true;
+                    $textContent = $part['text'];
+                    Logger::info('AIService - Found text content', [
+                        'text_length' => strlen($textContent),
+                        'text_content' => $textContent
+                    ]);
+                }
+            }
+
+            if ($foundText && !$foundImage) {
+                throw new Exception('AI returned text instead of image: ' . $textContent);
             }
         }
-        
-        // If no image, return text response or error
-        if (isset($response['candidates'][0]['content']['parts'][0]['text'])) {
-            $text = $response['candidates'][0]['content']['parts'][0]['text'];
-            throw new Exception('AI returned text instead of image: ' . $text);
-        }
-        
-        throw new Exception('No valid response from Gemini API');
+
+        throw new Exception('No valid response from Gemini API. Response structure: ' . json_encode($response, JSON_PRETTY_PRINT));
     }
     
     private function generateWithOpenAI(array $standingPhotos, array $outfitPhoto): array {
@@ -227,7 +278,7 @@ class AIService {
     }
     
     private function saveGeneratedImage(string $base64Data, string $mimeType): string {
-        $generatedDir = dirname(__DIR__) . '/generated';
+        $generatedDir = __DIR__ . '/../generated';
         if (!is_dir($generatedDir)) {
             @mkdir($generatedDir, 0755, true);
         }
@@ -256,17 +307,17 @@ class AIService {
     }
     
     private function getGenerationPrompt(): string {
-        return "Task: Virtual try-on composition.
+        return "Create a photorealistic SQUARE FORMAT image (1:1 aspect ratio) of the person from the first image wearing the outfit from the second image.
 
-Use the exact person from the first image (full-body standing photo). Preserve their identity, pose, body proportions, hair, skin tone, facial features. Camera perspective should be standing facing the camera like a model. Pay close attention to the face shape and eyes to try to make them look exactly like the person in the standing photo.
+Take the exact person shown in the first image (preserve their identity, face, hair, body proportions, and pose) and dress them in the clothing items shown in the second image. The person should be positioned facing the camera like a professional fashion model.
 
-From the second image (flat-lay outfit), identify each clothing item and accessories (top, bottoms, shoes, bag, scarf, jewelry). Dress the person in those exact items with realistic fit, fabric behavior, and layering. Maintain correct scale, drape, and contact points at shoulders, waist, hips, and feet. Keep all garment textures, colors, and details accurate.
+From the second image, identify and apply each clothing item: tops, bottoms, shoes, accessories. Ensure realistic fit, proper fabric draping, and accurate colors/textures from the original outfit.
 
-Background: Replace with a photorealistic bright outdoor scene (parklet/patio/garden vibe). Natural, slightly directional daylight; soft shadows; no other people.
+IMPORTANT: Frame the shot as a square photo (1:1 aspect ratio) showing the person from head to at least mid-thigh or knee level, ensuring the full head and face are visible within the square frame. Use a slightly wider shot to accommodate the square format.
 
-Output: A single photorealistic image of the same person now wearing the outfit from the flat-lay. Frame like professional fashion photography. Person should be facing the camera like a model. Avoid artifacts, misalignment, or extra items.
+Set the scene in a bright, clean outdoor environment with natural lighting and soft shadows. The final image should look like professional fashion photography with sharp focus and high detail, optimized for square social media formats.
 
-When you make the output, make sure to double check that all the items you identified in the flat-lay photo are present in the output image. Remove any other items that are not in the flat-lay photo, like hats, or phones (no selfies or phones).";
+Generate only the image - do not provide any text description or explanation.";
     }
     
     public static function validateUploadedFiles(array $standingFiles, array $outfitFile): array {

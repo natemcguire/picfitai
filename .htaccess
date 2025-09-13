@@ -29,8 +29,11 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Deny from all
 </Files>
 
-# Pretty URLs (if using Apache mod_rewrite)
+# Pretty URLs and routing
 RewriteEngine On
+
+# Share URL rewriting - /share/token -> /share.php?token=token
+RewriteRule ^share/([a-f0-9]{32})/?$ share.php?token=$1 [QSA,L]
 
 # Remove .php extension from URLs
 RewriteCond %{REQUEST_FILENAME} !-d

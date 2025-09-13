@@ -1,0 +1,4 @@
+# Protect user photos - only allow authenticated access
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.*)$ ../serve_photo.php?file=$1 [QSA,L]

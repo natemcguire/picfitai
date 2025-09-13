@@ -22,8 +22,9 @@ require_once __DIR__ . '/includes/Session.php';
 require_once __DIR__ . '/includes/StripeService.php';
 require_once __DIR__ . '/includes/AIService.php';
 
-// Initialize logger
-Logger::init();
+// Initialize logger - disable terminal output for web requests
+$isWebRequest = php_sapi_name() !== 'cli';
+Logger::init(null, !$isWebRequest);
 
 // Check for missing configuration in development
 if (php_sapi_name() === 'cli-server' || ($_SERVER['SERVER_NAME'] ?? '') === 'localhost') {

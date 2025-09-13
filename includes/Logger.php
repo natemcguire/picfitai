@@ -6,7 +6,7 @@ class Logger {
     private static string $logFile;
     private static bool $terminalOutput = false;
     
-    public static function init(string $logFile = null, bool $terminalOutput = true): void {
+    public static function init(?string $logFile = null, bool $terminalOutput = true): void {
         self::$logFile = $logFile ?: dirname(__DIR__) . '/logs/app.log';
         self::$terminalOutput = $terminalOutput;
         
