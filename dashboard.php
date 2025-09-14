@@ -963,15 +963,8 @@ foreach ($userPhotos as &$photo) {
             .catch(error => console.error('Error deleting photo:', error));
         }
 
-        // Handle file upload
-        document.getElementById('photo-upload').addEventListener('change', function(e) {
-            const files = e.target.files;
-            if (files.length === 0) return;
-
-            for (let i = 0; i < files.length; i++) {
-                uploadPhoto(files[i]);
-            }
-        });
+        // Handle file upload (Note: This is handled by the handlePhotoUpload function already)
+        // The photo upload input uses onchange="handlePhotoUpload(this)" inline handler
 
         function uploadPhoto(file) {
             const formData = new FormData();
@@ -995,7 +988,7 @@ foreach ($userPhotos as &$photo) {
         }
 
         // Close modal when clicking outside
-        document.getElementById('photoModal').addEventListener('click', function(e) {
+        document.getElementById('photoManagerModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closePhotoManager();
             }

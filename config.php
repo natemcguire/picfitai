@@ -49,7 +49,7 @@ class Config {
             'session_lifetime' => 86400 * 30, // 30 days
             'max_file_size' => 10 * 1024 * 1024, // 10MB
             'max_standing_photos' => 5,
-            'free_credits_per_user' => 100,
+            'free_credits_per_user' => 20,
             
             // Plans (credits and prices in cents)
             'stripe_plans' => [

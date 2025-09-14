@@ -12,7 +12,13 @@ class BackgroundJobService {
 
         // Store uploaded files in a temporary location with unique names
         $jobId = uniqid('job_', true);
-        $tempDir = __DIR__ . '/../temp_jobs/' . $jobId;
+        $tempJobsDir = __DIR__ . '/../temp_jobs';
+        $tempDir = $tempJobsDir . '/' . $jobId;
+
+        // Ensure temp_jobs directory exists (important for DreamHost deployment)
+        if (!is_dir($tempJobsDir)) {
+            @mkdir($tempJobsDir, 0755, true);
+        }
 
         if (!is_dir($tempDir)) {
             @mkdir($tempDir, 0755, true);

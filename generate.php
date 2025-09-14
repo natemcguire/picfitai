@@ -36,16 +36,36 @@ foreach ($userPhotos as &$photo) {
 // Get default outfit options
 $outfitOptions = [];
 $outfitsDir = __DIR__ . '/images/outfits/';
-if (is_dir($outfitsDir)) {
+
+// Debug info (can be enabled temporarily to diagnose issues)
+$debugOutfits = false; // Set to true to enable debugging
+if ($debugOutfits) {
+    error_log("Outfits directory: " . $outfitsDir);
+    error_log("Directory exists: " . (is_dir($outfitsDir) ? 'Yes' : 'No'));
+    if (is_dir($outfitsDir)) {
+        error_log("Directory readable: " . (is_readable($outfitsDir) ? 'Yes' : 'No'));
+        $allFiles = scandir($outfitsDir);
+        error_log("All files in directory: " . json_encode($allFiles));
+    }
+}
+
+if (is_dir($outfitsDir) && is_readable($outfitsDir)) {
     $outfitFiles = glob($outfitsDir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE);
+
+    if ($debugOutfits) {
+        error_log("Found outfit files: " . json_encode($outfitFiles));
+    }
+
     foreach ($outfitFiles as $filePath) {
-        $filename = basename($filePath);
-        $outfitOptions[] = [
-            'filename' => $filename,
-            'url' => '/images/outfits/' . $filename,
-            'path' => $filePath,
-            'name' => ucfirst(pathinfo($filename, PATHINFO_FILENAME))
-        ];
+        if (is_readable($filePath)) {
+            $filename = basename($filePath);
+            $outfitOptions[] = [
+                'filename' => $filename,
+                'url' => '/images/outfits/' . $filename,
+                'path' => $filePath,
+                'name' => ucfirst(pathinfo($filename, PATHINFO_FILENAME))
+            ];
+        }
     }
 }
 
@@ -907,11 +927,13 @@ $csrfToken = Session::generateCSRFToken();
                         <?php endif; ?>
                     </div>
 
+                    <!-- Always include these hidden inputs for consistent form handling -->
+                    <input type="hidden" name="use_stored_photo" value="<?= !empty($userPhotos) ? '1' : '0' ?>">
+                    <input type="hidden" name="stored_photo_id" value="<?= !empty($userPhotos) ? $userPhotos[0]['id'] : '' ?>">
+
                     <!-- Stored Photos Tab -->
                     <?php if (!empty($userPhotos)): ?>
                         <div class="tab-content active" id="stored-tab">
-                            <input type="hidden" name="use_stored_photo" value="1">
-                            <input type="hidden" name="stored_photo_id" value="<?= $userPhotos[0]['id'] ?>">
 
                             <div class="stored-photos-grid">
                                 <?php foreach ($userPhotos as $photo): ?>
@@ -953,15 +975,17 @@ $csrfToken = Session::generateCSRFToken();
 
                     <!-- Outfit Selection Tabs -->
                     <div class="photo-tabs">
-                        <button type="button" class="tab-btn active" data-tab="default-outfits">Choose Default</button>
-                        <button type="button" class="tab-btn" data-tab="upload-outfit">Upload New</button>
+                        <button type="button" class="tab-btn <?= !empty($outfitOptions) ? 'active' : '' ?>" data-tab="default-outfits">Choose Default</button>
+                        <button type="button" class="tab-btn <?= empty($outfitOptions) ? 'active' : '' ?>" data-tab="upload-outfit">Upload New</button>
                     </div>
+
+                    <!-- Always include these hidden inputs for consistent form handling -->
+                    <input type="hidden" name="use_default_outfit" value="<?= !empty($outfitOptions) ? '1' : '0' ?>">
+                    <input type="hidden" name="default_outfit_path" value="<?= !empty($outfitOptions) ? htmlspecialchars($outfitOptions[0]['path']) : '' ?>">
 
                     <!-- Default Outfits Tab -->
                     <div class="tab-content <?= !empty($outfitOptions) ? 'active' : '' ?>" id="default-outfits-tab">
                         <?php if (!empty($outfitOptions)): ?>
-                            <input type="hidden" name="use_default_outfit" value="1">
-                            <input type="hidden" name="default_outfit_path" value="<?= htmlspecialchars($outfitOptions[0]['path']) ?>">
 
                             <div class="default-outfits-grid">
                                 <?php foreach ($outfitOptions as $index => $outfit): ?>
