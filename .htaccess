@@ -1,44 +1,76 @@
-# PicFit.ai - PHP Configuration for File Uploads
+# PicFit.ai - Apache Configuration for DreamHost VPS
 
-# Increase PHP limits for image uploads
-php_value upload_max_filesize 50M
-php_value post_max_size 100M
-php_value max_file_uploads 20
-php_value max_execution_time 300
-php_value max_input_time 300
-php_value memory_limit 256M
+# Error handling
+<IfModule mod_rewrite.c>
+    # Don't show server version
+    ServerTokens Prod
+</IfModule>
 
-# Enable file uploads
-php_flag file_uploads On
+# Disable server signature (if allowed)
+ServerSignature Off
 
-# Security headers
-Header always set X-Content-Type-Options nosniff
-Header always set X-Frame-Options DENY
-Header always set X-XSS-Protection "1; mode=block"
-Header always set Referrer-Policy "strict-origin-when-cross-origin"
+# Increase PHP limits for image uploads (only if mod_php is available)
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 50M
+    php_value post_max_size 100M
+    php_value max_file_uploads 20
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+    php_flag file_uploads On
+</IfModule>
 
-# MIME type security
+# For PHP 8+ (if available)
+<IfModule mod_php.c>
+    php_value upload_max_filesize 50M
+    php_value post_max_size 100M
+    php_value max_file_uploads 20
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+    php_flag file_uploads On
+</IfModule>
+
+# Security headers (only if mod_headers is available)
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# MIME type security - allow PHP files
 <Files ~ "\.(php|phtml|php3|php4|php5|inc)$">
-    Order allow,deny
-    Allow from all
+    Require all granted
 </Files>
 
 # Block access to sensitive files
 <Files ~ "^(config|bootstrap|\.env)">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </Files>
 
+# Block access to backup files and logs
+<FilesMatch "\.(bak|backup|log|tmp|temp)$">
+    Require all denied
+</FilesMatch>
+
+# Block access to version control and config files
+<FilesMatch "^(\.git|\.env|composer\.(json|lock)|package\.(json|lock))">
+    Require all denied
+</FilesMatch>
+
 # Pretty URLs and routing
-RewriteEngine On
+<IfModule mod_rewrite.c>
+    RewriteEngine On
 
-# Share URL rewriting - /share/token -> /share.php?token=token
-RewriteRule ^share/([a-f0-9]{32})/?$ share.php?token=$1 [QSA,L]
+    # Share URL rewriting - /share/token -> /share.php?token=token
+    RewriteRule ^share/([a-f0-9]{32})/?$ share.php?token=$1 [QSA,L]
 
-# Remove .php extension from URLs
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^([^\.]+)$ $1.php [NC,L]
+    # Remove .php extension from URLs
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^([^\.]+)$ $1.php [NC,L]
+</IfModule>
 
 # Force HTTPS (uncomment if using SSL)
 # RewriteCond %{HTTPS} off
