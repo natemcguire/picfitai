@@ -15,7 +15,14 @@ class AIService {
     
     public function generateFit(int $userId, array $standingPhotos, array $outfitPhoto, bool $isPublic = true): array {
         $pdo = Database::getInstance();
-        
+
+        // Analyze outfit image to determine processing approach
+        $outfitAnalysis = $this->analyzeOutfitImage($outfitPhoto);
+
+        if (!$outfitAnalysis['is_valid']) {
+            throw new Exception($outfitAnalysis['error_message']);
+        }
+
         // Generate share token for public photos
         $shareToken = $isPublic ? bin2hex(random_bytes(16)) : null;
 
@@ -36,9 +43,9 @@ class AIService {
         try {
             // Try Gemini first if available
             if (!empty($this->geminiApiKey)) {
-                $result = $this->generateWithGemini($standingPhotos, $outfitPhoto);
+                $result = $this->generateWithGemini($standingPhotos, $outfitPhoto, $outfitAnalysis);
             } elseif (!empty($this->openaiApiKey)) {
-                $result = $this->generateWithOpenAI($standingPhotos, $outfitPhoto);
+                $result = $this->generateWithOpenAI($standingPhotos, $outfitPhoto, $outfitAnalysis);
             } else {
                 throw new Exception('No AI service configured');
             }
@@ -76,7 +83,7 @@ class AIService {
         }
     }
     
-    private function generateWithGemini(array $standingPhotos, array $outfitPhoto): array {
+    private function generateWithGemini(array $standingPhotos, array $outfitPhoto, array $outfitAnalysis): array {
         if (empty($this->geminiApiKey)) {
             throw new Exception('Gemini API key not configured');
         }
@@ -88,7 +95,7 @@ class AIService {
         $outfitB64 = $this->imageToBase64($outfitPhoto);
         $outfitMimeType = $outfitPhoto['type'] ?? 'image/jpeg';
 
-        $prompt = $this->getGenerationPrompt();
+        $prompt = $this->getGenerationPrompt($outfitAnalysis['outfit_type']);
 
         // Prepare request according to Gemini image generation API format
         $requestData = [
@@ -205,7 +212,7 @@ class AIService {
         throw new Exception('No valid response from Gemini API. Response structure: ' . json_encode($response, JSON_PRETTY_PRINT));
     }
     
-    private function generateWithOpenAI(array $standingPhotos, array $outfitPhoto): array {
+    private function generateWithOpenAI(array $standingPhotos, array $outfitPhoto, array $outfitAnalysis): array {
         // Note: OpenAI DALL-E doesn't support image input for editing
         // This would need to use a different approach or service
         throw new Exception('OpenAI generation not implemented - requires image-to-image service');
@@ -378,20 +385,131 @@ class AIService {
         return $filename;
     }
     
-    private function getGenerationPrompt(): string {
-        return "Create a photorealistic SQUARE FORMAT image (1:1 aspect ratio) of the person from the first image wearing the outfit from the second image.
+    private function getGenerationPrompt(string $outfitType = 'clothing_only'): string {
+        $basePrompt = "Create a photorealistic SQUARE FORMAT image (1:1 aspect ratio) of the person from the first image wearing the outfit from the second image.
 
-Take the exact person shown in the first image (preserve their identity, face, hair, body proportions, and pose) and dress them in the clothing items shown in the second image. The person should be positioned facing the camera like a professional fashion model.
+Take the exact person shown in the first image (preserve their identity, face, hair, body proportions, and pose) and dress them in the clothing items shown in the second image. The person should be positioned facing the camera like a professional fashion model.";
 
-From the second image, identify and apply each clothing item: tops, bottoms, shoes, accessories. Ensure realistic fit, proper fabric draping, and accurate colors/textures from the original outfit. If there is a person in the second image, disregard their face and body - focus only on the outfit and accessories, no background. Identify the outfit items and place them on the first person.
+        if ($outfitType === 'person_wearing_outfit') {
+            $outfitInstructions = "From the second image, identify ONLY the clothing items: tops, bottoms, shoes, accessories worn by the person in that image. COMPLETELY IGNORE the person's face, body, background, and any other people in the second image - focus EXCLUSIVELY on extracting and identifying the outfit pieces. Take those specific clothing items and apply them to the person from the first image with realistic fit, proper fabric draping, and accurate colors/textures.";
+        } else {
+            $outfitInstructions = "From the second image, identify and apply each clothing item: tops, bottoms, shoes, accessories. Ensure realistic fit, proper fabric draping, and accurate colors/textures from the original outfit.";
+        }
 
-IMPORTANT: Frame the shot as a square photo (1:1 aspect ratio) showing the person from head to at least mid-thigh or knee level, ensuring the full head and face are visible within the square frame. Use a slightly wider shot to accommodate the square format.
+        return $basePrompt . "\n\n" . $outfitInstructions . "\n\n" .
+            "IMPORTANT: Frame the shot as a square photo (1:1 aspect ratio) showing the person from head to at least mid-thigh or knee level, ensuring the full head and face are visible within the square frame. Use a slightly wider shot to accommodate the square format.
 
 Set the scene in a bright, clean outdoor environment with natural lighting and soft shadows. The final image should look like professional fashion photography with sharp focus and high detail, optimized for square social media formats.
 
 Generate only the image - do not provide any text description or explanation.";
     }
-    
+
+    private function analyzeOutfitImage(array $outfitPhoto): array {
+        if (empty($this->geminiApiKey)) {
+            // If no AI available for analysis, assume it's valid clothing
+            return [
+                'is_valid' => true,
+                'outfit_type' => 'clothing_only',
+                'confidence' => 0.5
+            ];
+        }
+
+        try {
+            $outfitB64 = $this->imageToBase64($outfitPhoto);
+            $outfitMimeType = $outfitPhoto['type'] ?? 'image/jpeg';
+
+            $analysisPrompt = "Analyze this image and determine if it contains clothing/outfits that could be worn by someone. Respond with ONLY ONE of these exact phrases:
+
+1. 'CLOTHING_ONLY' - if the image shows clothing items laid out, on hangers, on mannequins, or displayed without a real person wearing them
+2. 'PERSON_WEARING_OUTFIT' - if the image shows a real person wearing clothing/outfit
+3. 'INVALID_NO_OUTFIT' - if the image does not contain any clear clothing items or outfits (like random objects, landscapes, unclear images, etc.)
+
+Look carefully at the image and respond with exactly one of those three phrases, nothing else.";
+
+            $requestData = [
+                'contents' => [[
+                    'parts' => [
+                        ['text' => $analysisPrompt],
+                        [
+                            'inline_data' => [
+                                'mime_type' => $outfitMimeType,
+                                'data' => $outfitB64
+                            ]
+                        ]
+                    ]
+                ]],
+                'generationConfig' => [
+                    'temperature' => 0.1,
+                    'maxOutputTokens' => 50
+                ]
+            ];
+
+            $response = $this->makeGeminiRequest($requestData);
+
+            if (isset($response['candidates'][0]['content']['parts'][0]['text'])) {
+                $analysisResult = trim($response['candidates'][0]['content']['parts'][0]['text']);
+
+                Logger::info('AIService - Outfit analysis result', [
+                    'analysis_result' => $analysisResult
+                ]);
+
+                switch ($analysisResult) {
+                    case 'CLOTHING_ONLY':
+                        return [
+                            'is_valid' => true,
+                            'outfit_type' => 'clothing_only',
+                            'confidence' => 0.9
+                        ];
+
+                    case 'PERSON_WEARING_OUTFIT':
+                        return [
+                            'is_valid' => true,
+                            'outfit_type' => 'person_wearing_outfit',
+                            'confidence' => 0.9
+                        ];
+
+                    case 'INVALID_NO_OUTFIT':
+                        return [
+                            'is_valid' => false,
+                            'error_message' => "Sorry, we couldn't figure out what outfit we should put you in from this photo. Try another?",
+                            'confidence' => 0.9
+                        ];
+
+                    default:
+                        // If we get an unexpected response, default to clothing_only
+                        Logger::warning('AIService - Unexpected analysis result', [
+                            'result' => $analysisResult
+                        ]);
+                        return [
+                            'is_valid' => true,
+                            'outfit_type' => 'clothing_only',
+                            'confidence' => 0.3
+                        ];
+                }
+            }
+
+            // If analysis fails, default to allowing the image
+            Logger::warning('AIService - Outfit analysis failed, defaulting to valid');
+            return [
+                'is_valid' => true,
+                'outfit_type' => 'clothing_only',
+                'confidence' => 0.3
+            ];
+
+        } catch (Exception $e) {
+            Logger::error('AIService - Outfit analysis error', [
+                'error' => $e->getMessage()
+            ]);
+
+            // If analysis fails, default to allowing the image
+            return [
+                'is_valid' => true,
+                'outfit_type' => 'clothing_only',
+                'confidence' => 0.3
+            ];
+        }
+    }
+
     public static function validateUploadedFiles(array $standingFiles, array $outfitFile): array {
         $errors = [];
         $maxFileSize = Config::get('max_file_size', 10 * 1024 * 1024);

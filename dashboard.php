@@ -237,6 +237,7 @@ foreach ($userPhotos as &$photo) {
             display: flex;
             gap: 15px;
             align-items: center;
+            transition: all 0.3s ease;
         }
 
         .generation-info {
@@ -346,6 +347,33 @@ foreach ($userPhotos as &$photo) {
             background: #d4edda;
             color: #155724;
             border-color: #c3e6cb;
+        }
+
+        .delete-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 8px;
+            cursor: pointer;
+            color: #dc3545;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+        }
+
+        .delete-btn:hover {
+            background: #f5c6cb;
+            color: #721c24;
+            border-color: #f1b0b7;
+        }
+
+        .delete-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .empty-state {
@@ -841,6 +869,9 @@ foreach ($userPhotos as &$photo) {
                                                 📋
                                             </button>
                                         <?php endif; ?>
+                                        <button class="delete-btn" onclick="deleteGeneration(<?= $gen['id'] ?>, this)" title="Delete this generation">
+                                            🗑️
+                                        </button>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -1054,6 +1085,57 @@ foreach ($userPhotos as &$photo) {
                     button.innerHTML = originalContent;
                     button.classList.remove('copied');
                 }, 2000);
+            });
+        }
+
+        function deleteGeneration(generationId, button) {
+            if (!confirm('Are you sure you want to delete this generation? This action cannot be undone.')) {
+                return;
+            }
+
+            // Disable button during deletion
+            button.disabled = true;
+            const originalContent = button.innerHTML;
+            button.innerHTML = '⏳';
+
+            fetch('/api/delete_generation.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    generation_id: generationId,
+                    csrf_token: csrfToken
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Find and remove the generation item from the DOM
+                    const generationItem = button.closest('.generation-item');
+                    if (generationItem) {
+                        generationItem.style.opacity = '0.5';
+                        generationItem.style.transform = 'translateX(-100%)';
+                        setTimeout(() => {
+                            generationItem.remove();
+
+                            // Check if there are no more generations
+                            const remainingGenerations = document.querySelectorAll('.generation-item');
+                            if (remainingGenerations.length === 0) {
+                                location.reload(); // Reload to show empty state
+                            }
+                        }, 300);
+                    }
+                } else {
+                    alert('Failed to delete generation: ' + (data.error || 'Unknown error'));
+                    button.disabled = false;
+                    button.innerHTML = originalContent;
+                }
+            })
+            .catch(error => {
+                alert('Failed to delete generation: ' + error.message);
+                button.disabled = false;
+                button.innerHTML = originalContent;
             });
         }
 
