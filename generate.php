@@ -488,6 +488,26 @@ $csrfToken = Session::generateCSRFToken();
             cursor: not-allowed;
         }
 
+        .view-all-btn {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+            font-size: 1em;
+        }
+
+        .view-all-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4);
+            background: linear-gradient(45deg, #5fd8cf, #4ecdc4);
+        }
+
         /* Status Messages */
         .status-message {
             padding: 15px 20px;
@@ -540,22 +560,75 @@ $csrfToken = Session::generateCSRFToken();
             border-radius: 20px;
             padding: 40px;
             text-align: center;
-            max-width: 400px;
+            max-width: 450px;
+            width: 90vw;
         }
 
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+        .progress-container {
+            width: 100%;
+            background: #f0f0f0;
+            border-radius: 25px;
+            padding: 4px;
+            margin: 20px 0;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .progress-bar {
+            height: 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 20px;
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: progressShine 2s ease-in-out infinite;
+        }
+
+        @keyframes progressShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-text {
+            margin-top: 15px;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .success-content {
+            display: none;
+        }
+
+        .success-content.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .generate-another-btn {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .generate-another-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(78, 205, 196, 0.4);
         }
 
         /* Responsive Design */
@@ -600,12 +673,12 @@ $csrfToken = Session::generateCSRFToken();
                     <h3>📸 Step 1: Select Your Photo</h3>
 
                     <div class="selection-tabs">
-                        <button type="button" class="tab-button active" data-tab="person-stored">My Photos</button>
-                        <button type="button" class="tab-button" data-tab="person-upload">Upload New</button>
+                        <button type="button" class="tab-button <?= !empty($userPhotos) ? 'active' : '' ?>" data-tab="person-stored">My Photos</button>
+                        <button type="button" class="tab-button <?= empty($userPhotos) ? 'active' : '' ?>" data-tab="person-upload">Upload New</button>
                     </div>
 
                     <!-- Stored Photos Tab -->
-                    <div class="tab-content active" id="person-stored">
+                    <div class="tab-content <?= !empty($userPhotos) ? 'active' : '' ?>" id="person-stored">
                         <?php if (!empty($userPhotos)): ?>
                             <div class="selection-grid">
                                 <?php foreach ($userPhotos as $photo): ?>
@@ -632,7 +705,7 @@ $csrfToken = Session::generateCSRFToken();
                     </div>
 
                     <!-- Upload Tab -->
-                    <div class="tab-content" id="person-upload">
+                    <div class="tab-content <?= empty($userPhotos) ? 'active' : '' ?>" id="person-upload">
                         <div class="upload-area" id="personUploadArea">
                             <input type="file" name="person_upload" accept="image/*" id="personFileInput">
                             <div class="upload-icon">📤</div>
@@ -736,9 +809,27 @@ $csrfToken = Session::generateCSRFToken();
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-content">
-            <div class="spinner"></div>
-            <h3 style="color: #2c3e50; margin-bottom: 10px;">Creating Your Try-On</h3>
-            <p style="color: #6c757d;">This may take up to 2 minutes...</p>
+            <div id="loadingContent">
+                <h3 style="color: #2c3e50; margin-bottom: 10px;">Generating Your Fit</h3>
+                <p style="color: #6c757d; margin-bottom: 10px;">Dang you are going to look good...</p>
+
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+
+                <div class="progress-text" id="progressText">0% complete</div>
+                <button class="view-all-btn" onclick="window.location.href='/dashboard.php'">
+                    👗 View All Fits
+                </button>
+            </div>
+
+            <div class="success-content" id="successContent">
+                <h3 style="color: #2c3e50; margin-bottom: 10px;">🎉 Try-On Complete!</h3>
+                <p style="color: #6c757d; margin-bottom: 20px;">Your AI virtual try-on has been generated successfully.</p>
+                <button class="generate-another-btn" onclick="location.reload()">
+                    ✨ Generate Another
+                </button>
+            </div>
         </div>
     </div>
 
@@ -948,6 +1039,7 @@ $csrfToken = Session::generateCSRFToken();
                 // Show loading
                 loadingOverlay.classList.add('active');
                 generateBtn.disabled = true;
+                startProgressTimer();
 
                 // Submit form
                 const formData = new FormData(form);
@@ -969,11 +1061,58 @@ $csrfToken = Session::generateCSRFToken();
                         throw new Error(data.error || 'Generation failed');
                     }
                 } catch (error) {
+                    stopProgressTimer();
                     showMessage(error.message, 'error');
                     loadingOverlay.classList.remove('active');
                     generateBtn.disabled = false;
                 }
             });
+
+            // Progress timer function
+            let progressTimer = null;
+            let progressStartTime = null;
+
+            function startProgressTimer() {
+                progressStartTime = Date.now();
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+
+                // Reset progress
+                progressBar.style.width = '0%';
+                progressText.textContent = '0% complete';
+
+                // Clear any existing timer
+                if (progressTimer) clearInterval(progressTimer);
+
+                progressTimer = setInterval(() => {
+                    const elapsed = Date.now() - progressStartTime;
+                    const totalTime = 25000; // 25 seconds
+                    const progress = Math.min((elapsed / totalTime) * 100, 100);
+
+                    progressBar.style.width = progress + '%';
+
+                    if (progress >= 100) {
+                        progressText.textContent = 'finishing touches being applied...';
+                        clearInterval(progressTimer);
+                        progressTimer = null;
+                    } else {
+                        progressText.textContent = Math.round(progress) + '% complete';
+                    }
+                }, 200); // Update every 200ms for smooth animation
+            }
+
+            function stopProgressTimer() {
+                if (progressTimer) {
+                    clearInterval(progressTimer);
+                    progressTimer = null;
+                }
+            }
+
+            function showSuccessState() {
+                stopProgressTimer();
+                document.getElementById('loadingContent').style.display = 'none';
+                document.getElementById('successContent').classList.add('show');
+            }
 
             // Helper function to show messages
             function showMessage(message, type) {
@@ -1005,6 +1144,7 @@ $csrfToken = Session::generateCSRFToken();
 
                 const poll = async () => {
                     if (pollCount >= maxPolls) {
+                        stopProgressTimer();
                         showMessage('Processing is taking longer than expected', 'error');
                         loadingOverlay.classList.remove('active');
                         generateBtn.disabled = false;
@@ -1016,29 +1156,25 @@ $csrfToken = Session::generateCSRFToken();
                         const data = await response.json();
 
                         if (data.job && data.job.status === 'completed') {
-                            // Success! Redirect to share page
-                            if (data.job.result && data.job.result.share_token) {
-                                // Show success message briefly
-                                showMessage('Your AI generation is complete! Redirecting...', 'success');
+                            // Success! Show success state
+                            showSuccessState();
 
-                                // Redirect to share page after a short delay (with ?new=1 to show congrats message)
-                                setTimeout(() => {
-                                    window.location.href = `/share/${data.job.result.share_token}?new=1`;
-                                }, 1000);
+                            if (data.job.result && data.job.result.share_token) {
+                                // Redirect to share page immediately
+                                window.location.href = `/share/${data.job.result.share_token}?new=1`;
                             } else if (data.job.result && data.job.result.result_url) {
-                                // For private photos without share token, show result inline
-                                loadingOverlay.classList.remove('active');
-                                generateBtn.disabled = false;
-                                showMessage('Your private AI generation is complete!', 'success');
-                                showPrivateResult(data.job.result);
+                                // For private photos, show success state and allow "Generate Another"
+                                // Success state is already shown, user can click "Generate Another"
                             }
                         } else if (data.job && data.job.status === 'failed') {
+                            stopProgressTimer();
                             throw new Error(data.job.error || 'Generation failed');
                         } else {
                             pollCount++;
                             setTimeout(poll, 5000);
                         }
                     } catch (error) {
+                        stopProgressTimer();
                         showMessage(error.message, 'error');
                         loadingOverlay.classList.remove('active');
                         generateBtn.disabled = false;

@@ -87,6 +87,9 @@ if (!str_starts_with($imageUrl, 'http')) {
     $imageUrl = 'https://picfit.ai/' . ltrim($imageUrl, '/');
 }
 
+// Debug: Log the final image URL (remove this in production)
+error_log("Share page image URL: " . $imageUrl);
+
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -94,22 +97,19 @@ if (!str_starts_with($imageUrl, 'http')) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($pageTitle) ?></title>
 
-    <!-- Social Media Meta Tags -->
-    <meta property="og:title" content="Check out this AI virtual try-on!">
-    <meta property="og:description" content="See how AI can transform your style with PicFit.ai - the future of virtual fashion">
-    <meta property="og:image" content="<?= htmlspecialchars($imageUrl) ?>">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="1500">
-    <meta property="og:image:type" content="image/jpeg">
-    <meta property="og:url" content="<?= htmlspecialchars($shareUrl) ?>">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="PicFit.ai">
+    <!-- Open Graph (good for Facebook, WhatsApp, LinkedIn, etc.) -->
+    <meta property="og:title" content="PicFit – Try on outfits with AI" />
+    <meta property="og:description" content="Upload a photo and instantly see outfits styled on you." />
+    <meta property="og:image" content="<?= htmlspecialchars($imageUrl) ?>" />
+    <meta property="og:url" content="<?= htmlspecialchars($shareUrl) ?>" />
+    <meta property="og:type" content="website" />
 
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Check out this AI virtual try-on!">
-    <meta name="twitter:description" content="See how AI can transform your style with PicFit.ai">
-    <meta name="twitter:image" content="<?= htmlspecialchars($imageUrl) ?>">
-    <meta name="twitter:site" content="@PicFitAI">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PicFit – Try on outfits with AI" />
+    <meta name="twitter:description" content="Upload a photo and instantly see outfits styled on you." />
+    <meta name="twitter:image" content="<?= htmlspecialchars($imageUrl) ?>" />
+    <meta name="twitter:site" content="@PicFitAI" />
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Poppins:wght@300;400;600;700&display=swap');
@@ -306,9 +306,9 @@ if (!str_starts_with($imageUrl, 'http')) {
             background: rgba(255,255,255,0.95);
             border: none;
             border-radius: 50%;
-            width: 42px;
-            height: 42px;
-            font-size: 20px;
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
@@ -316,21 +316,36 @@ if (!str_starts_with($imageUrl, 'http')) {
             justify-content: center;
             text-decoration: none;
             color: #333;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow:
+                0 4px 15px rgba(0,0,0,0.2),
+                0 0 0 3px rgba(255,255,255,0.8),
+                0 0 0 6px rgba(255, 182, 193, 0.3);
+            backdrop-filter: blur(10px);
+            z-index: 100;
         }
 
         .navigation:hover {
             background: white;
-            transform: translateY(-50%) scale(1.1);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            transform: translateY(-50%) scale(1.15);
+            box-shadow:
+                0 8px 25px rgba(0,0,0,0.3),
+                0 0 0 3px rgba(255,255,255,0.9),
+                0 0 0 6px rgba(255, 182, 193, 0.5),
+                0 0 0 9px rgba(255, 107, 157, 0.2);
+            animation: arrowPulse 0.6s ease;
+        }
+
+        @keyframes arrowPulse {
+            0%, 100% { transform: translateY(-50%) scale(1.15); }
+            50% { transform: translateY(-50%) scale(1.2); }
         }
 
         .nav-prev {
-            left: 8px;
+            left: 20px;
         }
 
         .nav-next {
-            right: 8px;
+            right: 20px;
         }
 
         .viral-signup {
@@ -651,17 +666,17 @@ if (!str_starts_with($imageUrl, 'http')) {
             }
 
             .navigation {
-                width: 36px;
-                height: 36px;
-                font-size: 18px;
+                width: 46px;
+                height: 46px;
+                font-size: 20px;
             }
 
             .nav-prev {
-                left: 4px;
+                left: 15px;
             }
 
             .nav-next {
-                right: 4px;
+                right: 15px;
             }
         }
     </style>
@@ -859,6 +874,64 @@ if (!str_starts_with($imageUrl, 'http')) {
                 }, 2000);
             });
         }
+
+        // Touch/swipe support for mobile navigation
+        let startX = 0;
+        let startY = 0;
+        let isDragging = false;
+        const polaroidContainer = document.querySelector('.polaroid-container');
+
+        polaroidContainer.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 1) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                isDragging = true;
+            }
+        }, { passive: true });
+
+        polaroidContainer.addEventListener('touchmove', function(e) {
+            if (!isDragging || e.touches.length !== 1) return;
+
+            const currentX = e.touches[0].clientX;
+            const currentY = e.touches[0].clientY;
+            const diffX = startX - currentX;
+            const diffY = startY - currentY;
+
+            // Only prevent default if horizontal swipe is dominant
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        polaroidContainer.addEventListener('touchend', function(e) {
+            if (!isDragging) return;
+
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const diffX = startX - endX;
+            const diffY = startY - endY;
+
+            // Only trigger navigation if horizontal swipe is dominant and significant
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+                if (diffX > 0) {
+                    // Swiped left - go to next
+                    const nextBtn = document.querySelector('.nav-next');
+                    if (nextBtn) {
+                        nextBtn.style.animation = 'arrowPulse 0.3s ease';
+                        setTimeout(() => nextBtn.click(), 100);
+                    }
+                } else {
+                    // Swiped right - go to previous
+                    const prevBtn = document.querySelector('.nav-prev');
+                    if (prevBtn) {
+                        prevBtn.style.animation = 'arrowPulse 0.3s ease';
+                        setTimeout(() => prevBtn.click(), 100);
+                    }
+                }
+            }
+
+            isDragging = false;
+        }, { passive: true });
 
         // Keyboard navigation
         document.addEventListener('keydown', function(e) {

@@ -8,12 +8,17 @@ require_once __DIR__ . '/includes/UserPhotoService.php';
 Session::requireLogin();
 $user = Session::getCurrentUser();
 
-// Get recent generations with share tokens
+// Get recent generations with share tokens and likes count
 $pdo = Database::getInstance();
 $stmt = $pdo->prepare('
-    SELECT * FROM generations
-    WHERE user_id = ?
-    ORDER BY created_at DESC
+    SELECT g.*,
+           COALESCE(SUM(CASE WHEN pr.rating = 1 THEN 1 ELSE 0 END), 0) as likes_count,
+           COALESCE(SUM(CASE WHEN pr.rating = -1 THEN 1 ELSE 0 END), 0) as dislikes_count
+    FROM generations g
+    LEFT JOIN photo_ratings pr ON g.id = pr.generation_id
+    WHERE g.user_id = ?
+    GROUP BY g.id
+    ORDER BY g.created_at DESC
     LIMIT 10
 ');
 $stmt->execute([$user['id']]);
@@ -800,12 +805,28 @@ foreach ($userPhotos as &$photo) {
                                     <?php endif; ?>
 
                                     <div class="generation-info">
-                                        <h4>Outfit #<?= $index + 1 ?></h4>
+                                        <h4>Outfit #<?= count($generations) - $index ?></h4>
                                         <div class="date"><?= date('M j, g:i A', strtotime($gen['created_at'])) ?></div>
-                                        <div>
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
                                             <span class="status-badge status-<?= $gen['status'] ?>">
                                                 <?= ucfirst($gen['status']) ?>
                                             </span>
+                                            <?php if ($gen['status'] === 'completed' && $gen['is_public'] && ((int)$gen['likes_count'] > 0 || (int)$gen['dislikes_count'] > 0)): ?>
+                                                <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85em; color: #7f8c8d;">
+                                                    <?php if ((int)$gen['likes_count'] > 0): ?>
+                                                        <span style="display: flex; align-items: center; gap: 3px;">
+                                                            <span style="color: #27ae60;">👍</span>
+                                                            <span style="color: #27ae60; font-weight: 600;"><?= (int)$gen['likes_count'] ?></span>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <?php if ((int)$gen['dislikes_count'] > 0): ?>
+                                                        <span style="display: flex; align-items: center; gap: 3px;">
+                                                            <span style="color: #e74c3c;">👎</span>
+                                                            <span style="color: #e74c3c; font-weight: 600;"><?= (int)$gen['dislikes_count'] ?></span>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                         <?php if ($gen['status'] === 'failed'): ?>
                                             <div style="color: #e74c3c; font-size: 0.85em; margin-top: 5px;">

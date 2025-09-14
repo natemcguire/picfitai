@@ -50,8 +50,8 @@ try {
         'avatar_url' => $userInfo['picture'] ?? null
     ]);
     
-    // Redirect to dashboard
-    header('Location: /dashboard.php');
+    // Redirect to generate page
+    header('Location: /generate.php');
     exit;
     
 } catch (Exception $e) {
