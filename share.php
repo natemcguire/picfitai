@@ -250,6 +250,7 @@ $imageUrl = $generation['result_url'];
             width: 100%;
             height: 100%;
             object-fit: cover;
+            object-position: center top;
             display: block;
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
@@ -317,7 +318,7 @@ $imageUrl = $generation['result_url'];
 
         .viral-signup {
             position: fixed;
-            bottom: 25px;
+            bottom: 120px;
             left: 50%;
             transform: translateX(-50%);
             background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
@@ -422,7 +423,7 @@ $imageUrl = $generation['result_url'];
             margin-bottom: 20px;
             display: flex;
             gap: 10px;
-            align-items: center;
+            align-items: stretch;
             background: rgba(255, 255, 255, 0.9);
             padding: 15px;
             border-radius: 15px;
@@ -525,7 +526,7 @@ $imageUrl = $generation['result_url'];
 
         .rating-buttons {
             display: flex;
-            gap: 20px;
+            gap: 30px;
             justify-content: center;
             align-items: center;
             margin-bottom: 15px;
@@ -535,7 +536,7 @@ $imageUrl = $generation['result_url'];
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 12px 20px;
+            padding: 16px 24px;
             background: rgba(255, 255, 255, 0.9);
             border: 2px solid rgba(255, 182, 193, 0.3);
             border-radius: 25px;
@@ -546,6 +547,8 @@ $imageUrl = $generation['result_url'];
             color: #2c3e50;
             backdrop-filter: blur(10px);
             user-select: none;
+            min-height: 44px;
+            min-width: 44px;
         }
 
         .rating-btn:hover:not(:disabled) {

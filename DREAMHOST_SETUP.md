@@ -2,23 +2,32 @@
 
 ## Background Job Processing Setup
 
-The application uses background job processing for AI image generation. To enable this on DreamHost VPS, you need to set up a cron job.
+The application uses background job processing for AI image generation. To enable this on DreamHost VPS, you need to set up a cron job via SSH.
 
-### Step 1: Set up Cron Job
+### Step 1: Set up Cron Job via SSH
 
-1. Log into your DreamHost panel
-2. Go to "Cron Jobs" section
-3. Add a new cron job with these settings:
+1. **SSH into your server** using your Shell user
+2. **Edit your crontab file**:
+   ```bash
+   crontab -e
+   ```
+3. **Set up email delivery** when prompted:
+   - Enter your email address for cron job output
+   - Type `y` to confirm
+4. **Choose editor** (recommend #6 for nano - easiest option)
+5. **Add this cron job** to the file:
+   ```bash
+   # PicFit.ai background job processor - runs every minute
+   MAILTO="your-email@example.com"
+   * * * * * /usr/local/php82/bin/php /home/natemcguirellc/Projects/picfitai/process_jobs.php
+   ```
+6. **Save the file** (in nano: Ctrl+X, then Y, then Enter)
 
-```bash
-# Run every minute to process background jobs
-* * * * * /usr/local/php82/bin/php /home/natemcguirellc/Projects/picfitai/process_jobs.php
-
-# Alternative: Run every 2 minutes (less frequent but still responsive)
-*/2 * * * * /usr/local/php82/bin/php /home/natemcguirellc/Projects/picfitai/process_jobs.php
-```
-
-**Important**: Replace `/home/natemcguirellc/Projects/picfitai/` with your actual path to the project.
+**Important Notes:**
+- Replace `your-email@example.com` with your actual email
+- Replace `/home/natemcguirellc/Projects/picfitai/` with your actual project path
+- Make sure to press Enter at the end of the cron job line (newline character required)
+- Check PHP version: you might need `/usr/local/php83/bin/php` instead of php82
 
 ### Step 2: Ensure Directory Permissions
 
