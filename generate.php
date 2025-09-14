@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Handle both stored photos and uploaded photos
-        $standingPhotos = [];
+                $standingPhotos = [];
         $useStoredPhoto = isset($_POST['use_stored_photo']) && $_POST['use_stored_photo'] === '1';
 
         // Debug logging to see what's being submitted
@@ -148,11 +148,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $savePhoto = isset($_POST['save_photo']) && $_POST['save_photo'] === '1';
 
             if (isset($_FILES['standing_photos']['tmp_name']) && is_array($_FILES['standing_photos']['tmp_name'])) {
-                for ($i = 0; $i < count($_FILES['standing_photos']['tmp_name']); $i++) {
-                    if (!empty($_FILES['standing_photos']['tmp_name'][$i])) {
-                        $standingPhotos[] = [
-                            'tmp_name' => $_FILES['standing_photos']['tmp_name'][$i],
-                            'type' => $_FILES['standing_photos']['type'][$i],
+                    for ($i = 0; $i < count($_FILES['standing_photos']['tmp_name']); $i++) {
+                        if (!empty($_FILES['standing_photos']['tmp_name'][$i])) {
+                            $standingPhotos[] = [
+                                'tmp_name' => $_FILES['standing_photos']['tmp_name'][$i],
+                                'type' => $_FILES['standing_photos']['type'][$i],
                             'size' => $_FILES['standing_photos']['size'][$i],
                             'name' => $_FILES['standing_photos']['name'][$i]
                         ];
@@ -216,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'size' => filesize($defaultOutfitPath),
                 'name' => basename($defaultOutfitPath)
             ];
-        } else {
+                    } else {
             // Use uploaded outfit - validate it
             if (empty($_FILES['outfit_photo']['name'])) {
                 throw new Exception('Please upload an outfit photo or select a default outfit');
@@ -250,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-    } catch (Exception $e) {
+        } catch (Exception $e) {
         $error = $e->getMessage();
         Logger::error('Generation error', ['error' => $error, 'user_id' => $user['id']]);
 
@@ -515,72 +515,46 @@ $csrfToken = Session::generateCSRFToken();
             100% { opacity: 1; }
         }
 
-        .photo-tabs {
-            display: flex;
-            gap: 0;
-            margin-bottom: 20px;
-            border-radius: 10px;
-            overflow: hidden;
-            background: #ecf0f1;
+        .photo-gallery, .outfit-gallery {
+            margin-top: 20px;
         }
 
-        .tab-btn {
-            flex: 1;
-            padding: 15px 20px;
-            border: none;
-            background: #ecf0f1;
-            color: #7f8c8d;
-            font-size: 1em;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        .photo-gallery h4, .outfit-gallery h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.1em;
         }
 
-        .tab-btn.active {
-            background: #667eea;
-            color: white;
-        }
-
-        .tab-btn:hover:not(.active) {
-            background: #d5d8dc;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .stored-photos-grid {
+        .gallery-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             gap: 15px;
             margin-bottom: 15px;
         }
 
-        .stored-photo {
+        .gallery-item {
             position: relative;
             border-radius: 10px;
             overflow: hidden;
             cursor: pointer;
             transition: all 0.3s ease;
             border: 3px solid transparent;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        .stored-photo:hover {
+        .gallery-item:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         }
 
-        .stored-photo.selected {
+        .gallery-item.selected {
             border-color: #667eea;
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
         }
 
-        .stored-photo.selected::after {
+        .gallery-item.selected::after {
             content: '✓';
             position: absolute;
             top: 8px;
@@ -598,11 +572,11 @@ $csrfToken = Session::generateCSRFToken();
             z-index: 10;
         }
 
-        .stored-photo.primary {
+        .gallery-item.primary {
             border-color: #27ae60;
         }
 
-        .stored-photo img {
+        .gallery-item img {
             width: 100%;
             height: 120px;
             object-fit: cover;
@@ -620,7 +594,7 @@ $csrfToken = Session::generateCSRFToken();
             font-weight: bold;
         }
 
-        .photo-name {
+        .photo-name, .outfit-name {
             position: absolute;
             bottom: 0;
             left: 0;
@@ -634,19 +608,38 @@ $csrfToken = Session::generateCSRFToken();
             overflow: hidden;
         }
 
-        .stored-photos-hint {
+        .gallery-hint {
             color: #7f8c8d;
             font-size: 0.9em;
             text-align: center;
         }
 
-        .stored-photos-hint a {
+        .gallery-hint a {
             color: #667eea;
             text-decoration: none;
         }
 
-        .stored-photos-hint a:hover {
+        .gallery-hint a:hover {
             text-decoration: underline;
+        }
+
+        .gallery-placeholder {
+            text-align: center;
+            padding: 40px 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px dashed #dee2e6;
+        }
+
+        .placeholder-icon {
+            font-size: 3em;
+            color: #adb5bd;
+            margin-bottom: 10px;
+        }
+
+        .gallery-placeholder p {
+            color: #6c757d;
+            margin: 0;
         }
 
         .save-photo-option {
@@ -764,83 +757,6 @@ $csrfToken = Session::generateCSRFToken();
             margin-top: 15px;
         }
 
-        .default-outfits-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-
-        .default-outfit {
-            position: relative;
-            border-radius: 15px;
-            overflow: hidden;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: 3px solid transparent;
-            background: linear-gradient(145deg, #fff 0%, #fefefe 100%);
-            box-shadow: 0 4px 15px rgba(255, 182, 193, 0.2);
-            backdrop-filter: blur(10px);
-        }
-
-        .default-outfit:hover {
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 8px 25px rgba(255, 107, 157, 0.3);
-            border-color: rgba(255, 182, 193, 0.5);
-        }
-
-        .default-outfit.selected {
-            border-color: #ff6b9d;
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(255, 107, 157, 0.4);
-            background: linear-gradient(145deg, #fff 0%, #fffafc 100%);
-        }
-
-        .default-outfit.selected::after {
-            content: '✓';
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: #ff6b9d;
-            color: white;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: bold;
-            z-index: 10;
-        }
-
-        .default-outfit img {
-            width: 100%;
-            height: 140px;
-            object-fit: cover;
-            display: block;
-        }
-
-        .outfit-name {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(transparent, rgba(255, 107, 157, 0.9));
-            color: white;
-            padding: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            text-align: center;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        }
-
-        .outfit-hint {
-            text-align: center;
-            color: #7f8c8d;
-            font-size: 0.9em;
-            font-style: italic;
-        }
 
         .generation-thumbnail {
             position: relative;
@@ -901,32 +817,7 @@ $csrfToken = Session::generateCSRFToken();
                 max-width: 600px;
             }
 
-            .photo-tabs {
-                flex-direction: column;
-            }
-
-            .tab-btn {
-                border-radius: 0;
-                border-bottom: 1px solid #bdc3c7;
-            }
-
-            .tab-btn:first-child {
-                border-top-left-radius: 10px;
-                border-top-right-radius: 10px;
-            }
-
-            .tab-btn:last-child {
-                border-bottom-left-radius: 10px;
-                border-bottom-right-radius: 10px;
-                border-bottom: none;
-            }
-
-            .stored-photos-grid {
-                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-                gap: 10px;
-            }
-
-            .default-outfits-grid {
+            .gallery-grid {
                 grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
                 gap: 10px;
             }
@@ -973,22 +864,12 @@ $csrfToken = Session::generateCSRFToken();
                 font-size: 2em;
             }
 
-            .stored-photos-grid {
+            .gallery-grid {
                 grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
                 gap: 8px;
             }
 
-            .default-outfits-grid {
-                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-                gap: 8px;
-            }
-
-            .stored-photo img,
-            .default-outfit img {
-                height: 100px;
-            }
-
-            .default-outfit img {
+            .gallery-item img {
                 height: 100px;
             }
 
@@ -1016,7 +897,7 @@ $csrfToken = Session::generateCSRFToken();
                 <a href="/auth/logout.php" class="nav-btn">Logout</a>
                 <div class="credits">💎 <?= number_format($credits, ($credits == floor($credits)) ? 0 : 1) ?> Credits</div>
             </div>
-        </div>
+                </div>
 
         <div class="form-container">
             <?php if ($error): ?>
@@ -1037,31 +918,34 @@ $csrfToken = Session::generateCSRFToken();
 
             <form id="tryOnForm" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
-
+                
                 <div class="upload-section">
                     <h3>📸 Your Photo</h3>
 
-                    <!-- Photo Selection Tabs -->
-                    <div class="photo-tabs">
-                        <?php if (!empty($userPhotos)): ?>
-                            <button type="button" class="tab-btn active" data-tab="stored">Use Saved Photo</button>
-                            <button type="button" class="tab-btn" data-tab="upload">Upload New</button>
-                        <?php else: ?>
-                            <button type="button" class="tab-btn active" data-tab="upload">Upload Photo</button>
-                        <?php endif; ?>
+                    <!-- Photo Upload Area -->
+                    <label class="file-upload" id="standingUpload">
+                        <input type="file" name="standing_photos[]" accept="image/*" multiple>
+                        <div class="upload-icon">📷</div>
+                        <div class="upload-text">Tap to upload your photo</div>
+                        <div class="upload-hint">JPEG, PNG, or WebP (max 10MB each)</div>
+                        <div class="file-preview" id="standingPreview"></div>
+                    </label>
+
+                    <!-- Save Photo Option -->
+                    <div class="save-photo-option">
+                        <label style="display: flex; align-items: center; gap: 8px; margin-top: 15px;">
+                            <input type="checkbox" name="save_photo" value="1" checked>
+                            <span>Save this photo for future use</span>
+                        </label>
                     </div>
-
-                    <!-- Always include these hidden inputs for consistent form handling -->
-                    <input type="hidden" name="use_stored_photo" value="<?= !empty($userPhotos) ? '1' : '0' ?>">
-                    <input type="hidden" name="stored_photo_id" value="<?= !empty($userPhotos) ? $userPhotos[0]['id'] : '' ?>">
-
-                    <!-- Stored Photos Tab -->
-                    <?php if (!empty($userPhotos)): ?>
-                        <div class="tab-content active" id="stored-tab">
-
-                            <div class="stored-photos-grid">
+                    
+                    <!-- Photo Gallery -->
+                    <div class="photo-gallery">
+                        <h4>Your Saved Photos</h4>
+                        <?php if (!empty($userPhotos)): ?>
+                            <div class="gallery-grid">
                                 <?php foreach ($userPhotos as $photo): ?>
-                                    <div class="stored-photo <?= $photo['is_primary'] ? 'primary' : '' ?>" data-photo-id="<?= $photo['id'] ?>">
+                                    <div class="gallery-item <?= $photo['is_primary'] ? 'primary' : '' ?>" data-photo-id="<?= $photo['id'] ?>" data-photo-url="<?= htmlspecialchars($photo['url']) ?>">
                                         <img src="<?= htmlspecialchars($photo['url']) ?>" alt="Your photo" loading="lazy">
                                         <?php if ($photo['is_primary']): ?>
                                             <div class="primary-badge">Primary</div>
@@ -1070,71 +954,51 @@ $csrfToken = Session::generateCSRFToken();
                                     </div>
                                 <?php endforeach; ?>
                             </div>
+                            <p class="gallery-hint">Tap a photo above to use it, or <a href="/dashboard.php">manage your photos</a></p>
+                        <?php else: ?>
+                            <div class="gallery-placeholder">
+                                <div class="placeholder-icon">📷</div>
+                                <p>No saved photos yet. Upload a photo above to get started!</p>
+                            </div>
+                        <?php endif; ?>
+                </div>
 
-                            <p class="stored-photos-hint">Select a photo to use, or <a href="/dashboard.php">manage your photos</a></p>
-                        </div>
-                    <?php endif; ?>
-
-                    <!-- Upload Tab -->
-                    <div class="tab-content <?= empty($userPhotos) ? 'active' : '' ?>" id="upload-tab">
-                        <label class="file-upload" id="standingUpload">
-                            <input type="file" name="standing_photos[]" accept="image/*" multiple>
-                            <div class="upload-icon">📷</div>
-                            <div class="upload-text">Tap to upload your photo</div>
-                            <div class="upload-hint">JPEG, PNG, or WebP (max 10MB each)</div>
-                            <div class="file-preview" id="standingPreview"></div>
-                        </label>
-
-                        <div class="save-photo-option">
-                            <label style="display: flex; align-items: center; gap: 8px; margin-top: 15px;">
-                                <input type="checkbox" name="save_photo" value="1" checked>
-                                <span>Save this photo for future use</span>
-                            </label>
-                        </div>
-                    </div>
+                    <!-- Hidden inputs for form handling -->
+                    <input type="hidden" name="use_stored_photo" value="0">
+                    <input type="hidden" name="stored_photo_id" value="">
                 </div>
 
                 <div class="upload-section">
                     <h3>👕 Choose Your Outfit</h3>
 
-                    <!-- Outfit Selection Tabs -->
-                    <div class="photo-tabs">
-                        <button type="button" class="tab-btn <?= !empty($outfitOptions) ? 'active' : '' ?>" data-tab="default-outfits">Choose Default</button>
-                        <button type="button" class="tab-btn <?= empty($outfitOptions) ? 'active' : '' ?>" data-tab="upload-outfit">Upload New</button>
-                    </div>
+                    <!-- Outfit Upload Area -->
+                    <label class="file-upload" id="outfitUpload">
+                        <input type="file" name="outfit_photo" accept="image/*">
+                        <div class="upload-icon">👔</div>
+                        <div class="upload-text">Tap to upload outfit</div>
+                        <div class="upload-hint">JPEG, PNG, or WebP (max 10MB)</div>
+                        <div class="file-preview" id="outfitPreview"></div>
+                    </label>
 
-                    <!-- Always include these hidden inputs for consistent form handling -->
-                    <input type="hidden" name="use_default_outfit" value="<?= !empty($outfitOptions) ? '1' : '0' ?>">
-                    <input type="hidden" name="default_outfit_path" value="<?= !empty($outfitOptions) ? htmlspecialchars($outfitOptions[0]['path']) : '' ?>">
-
-                    <!-- Default Outfits Tab -->
-                    <div class="tab-content <?= !empty($outfitOptions) ? 'active' : '' ?>" id="default-outfits-tab">
-                        <?php if (!empty($outfitOptions)): ?>
-
-                            <div class="default-outfits-grid">
+                    <!-- Default Outfits Gallery -->
+                    <?php if (!empty($outfitOptions)): ?>
+                        <div class="outfit-gallery">
+                            <h4>Default Outfits</h4>
+                            <div class="gallery-grid">
                                 <?php foreach ($outfitOptions as $index => $outfit): ?>
-                                    <div class="default-outfit <?= $index === 0 ? 'selected' : '' ?>" data-outfit-path="<?= htmlspecialchars($outfit['path']) ?>" data-outfit-name="<?= htmlspecialchars($outfit['name']) ?>">
+                                    <div class="gallery-item outfit-item" data-outfit-path="<?= htmlspecialchars($outfit['path']) ?>" data-outfit-name="<?= htmlspecialchars($outfit['name']) ?>" data-outfit-url="<?= htmlspecialchars($outfit['url']) ?>">
                                         <img src="<?= htmlspecialchars($outfit['url']) ?>" alt="<?= htmlspecialchars($outfit['name']) ?>" loading="lazy">
                                         <div class="outfit-name"><?= htmlspecialchars($outfit['name']) ?></div>
-                                    </div>
+                    </div>
                                 <?php endforeach; ?>
                             </div>
-                            <p class="outfit-hint">Select an outfit, or upload your own below</p>
-                        <?php else: ?>
-                            <p class="outfit-hint">No default outfits available. Please upload your own outfit photo.</p>
-                        <?php endif; ?>
-                    </div>
-
-                    <!-- Upload Outfit Tab -->
-                    <div class="tab-content <?= empty($outfitOptions) ? 'active' : '' ?>" id="upload-outfit-tab">
-                        <label class="file-upload" id="outfitUpload">
-                            <input type="file" name="outfit_photo" accept="image/*" <?= empty($outfitOptions) ? 'required' : '' ?>>
-                            <div class="upload-icon">👔</div>
-                            <div class="upload-text">Tap to upload outfit</div>
-                            <div class="upload-hint">JPEG, PNG, or WebP (max 10MB)</div>
-                            <div class="file-preview" id="outfitPreview"></div>
-                        </label>
-                    </div>
+                            <p class="gallery-hint">Tap an outfit above to use it, or upload your own above</p>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <!-- Hidden inputs for form handling -->
+                    <input type="hidden" name="use_default_outfit" value="0">
+                    <input type="hidden" name="default_outfit_path" value="">
                 </div>
 
                 <div class="privacy-section">
@@ -1145,7 +1009,7 @@ $csrfToken = Session::generateCSRFToken();
                             <div class="option-content">
                                 <strong>📢 Public (0.5 credits)</strong>
                                 <p>Your photo will be shareable and visible in our gallery. Perfect for showing off your style!</p>
-                            </div>
+                    </div>
                         </label>
                         <label class="privacy-option">
                             <input type="radio" name="make_private" value="1">
@@ -1161,7 +1025,7 @@ $csrfToken = Session::generateCSRFToken();
                     <span id="generateBtnText">
                         <?= $credits < 0.5 ? 'Insufficient Credits' : '✨ Generate AI Try-On (0.5 Credits)' ?>
                     </span>
-                </button>
+                    </button>
 
                 <div class="loading" id="loadingDiv">
                     <div class="spinner"></div>
@@ -1182,106 +1046,105 @@ $csrfToken = Session::generateCSRFToken();
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('tryOnForm');
-            const generateBtn = document.getElementById('generateBtn');
+        const generateBtn = document.getElementById('generateBtn');
             const loadingDiv = document.getElementById('loadingDiv');
 
-            // Handle photo tabs
-            const tabBtns = document.querySelectorAll('.tab-btn');
-            const tabContents = document.querySelectorAll('.tab-content');
-            const useStoredPhotoInput = document.querySelector('input[name="use_stored_photo"]');
-
-            tabBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const tab = btn.dataset.tab;
-
-                    // Update tab buttons
-                    tabBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-
-                    // Update tab contents
-                    tabContents.forEach(content => {
-                        content.classList.remove('active');
-                    });
-                    document.getElementById(tab + '-tab').classList.add('active');
-
-                    // Update form data based on which section this tab belongs to
-                    if (tab === 'stored' || tab === 'upload') {
-                        // Photo selection tabs
-                        if (useStoredPhotoInput) {
-                            useStoredPhotoInput.value = tab === 'stored' ? '1' : '0';
-                        }
-                    } else if (tab === 'default-outfits' || tab === 'upload-outfit') {
-                        // Outfit selection tabs
-                        const useDefaultOutfitInput = document.querySelector('input[name="use_default_outfit"]');
-                        if (useDefaultOutfitInput) {
-                            useDefaultOutfitInput.value = tab === 'default-outfits' ? '1' : '0';
-                        }
-
-                        // Update outfit photo input requirement
-                        const outfitInput = document.querySelector('input[name="outfit_photo"]');
-                        if (outfitInput) {
-                            outfitInput.required = tab !== 'default-outfits';
-                            // Clear the file input when switching to default outfits
-                            if (tab === 'default-outfits') {
-                                outfitInput.value = '';
-                            }
-                        }
-                    }
-
-                    console.log('Tab switched to:', tab);
-                    console.log('use_stored_photo:', document.querySelector('input[name="use_stored_photo"]')?.value);
-                    console.log('use_default_outfit:', document.querySelector('input[name="use_default_outfit"]')?.value);
-                });
-            });
-
-            // Handle stored photo selection
-            const storedPhotos = document.querySelectorAll('.stored-photo');
+            // Handle gallery photo selection
+            const galleryItems = document.querySelectorAll('.gallery-item[data-photo-id]');
             const storedPhotoIdInput = document.querySelector('input[name="stored_photo_id"]');
+            const useStoredPhotoInput = document.querySelector('input[name="use_stored_photo"]');
+            const standingUpload = document.getElementById('standingUpload');
+            const standingPreview = document.getElementById('standingPreview');
 
-            storedPhotos.forEach(photo => {
-                photo.addEventListener('click', () => {
-                    // Remove selection from all photos
-                    storedPhotos.forEach(p => p.classList.remove('selected'));
+            galleryItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    // Remove selection from all gallery items
+                    galleryItems.forEach(i => i.classList.remove('selected'));
 
-                    // Select this photo
-                    photo.classList.add('selected');
+                    // Select this item
+                    item.classList.add('selected');
 
                     // Update form data
                     if (storedPhotoIdInput) {
-                        storedPhotoIdInput.value = photo.dataset.photoId;
+                        storedPhotoIdInput.value = item.dataset.photoId;
                     }
+                    if (useStoredPhotoInput) {
+                        useStoredPhotoInput.value = '1';
+                    }
+
+                    // Show preview in upload area
+                    const photoUrl = item.dataset.photoUrl;
+                    standingPreview.innerHTML = `<img src="${photoUrl}" style="max-width: 100px; max-height: 100px; border-radius: 8px; margin: 5px;">`;
+                    standingPreview.style.display = 'block';
+
+                    // Clear file input
+                    const fileInput = standingUpload.querySelector('input[type="file"]');
+                    fileInput.value = '';
+
+                    console.log('Selected stored photo:', item.dataset.photoId);
                 });
             });
 
-            // Select primary photo by default
-            const primaryPhoto = document.querySelector('.stored-photo.primary');
-            if (primaryPhoto) {
-                primaryPhoto.classList.add('selected');
-            }
-
-            // Handle default outfit selection
-            const defaultOutfits = document.querySelectorAll('.default-outfit');
+            // Handle outfit gallery selection
+            const outfitItems = document.querySelectorAll('.gallery-item[data-outfit-path]');
             const defaultOutfitPathInput = document.querySelector('input[name="default_outfit_path"]');
+            const useDefaultOutfitInput = document.querySelector('input[name="use_default_outfit"]');
+            const outfitUpload = document.getElementById('outfitUpload');
+            const outfitPreview = document.getElementById('outfitPreview');
 
-            defaultOutfits.forEach(outfit => {
-                outfit.addEventListener('click', () => {
-                    // Remove selection from all outfits
-                    defaultOutfits.forEach(o => o.classList.remove('selected'));
+            outfitItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    // Remove selection from all outfit items
+                    outfitItems.forEach(i => i.classList.remove('selected'));
 
-                    // Select this outfit
-                    outfit.classList.add('selected');
+                    // Select this item
+                    item.classList.add('selected');
 
-                    // Update hidden input with outfit path
+                    // Update form data
                     if (defaultOutfitPathInput) {
-                        defaultOutfitPathInput.value = outfit.dataset.outfitPath;
+                        defaultOutfitPathInput.value = item.dataset.outfitPath;
                     }
-
-                    // Update the use_default_outfit input to ensure it's set to 1
-                    const useDefaultOutfitInput = document.querySelector('input[name="use_default_outfit"]');
                     if (useDefaultOutfitInput) {
                         useDefaultOutfitInput.value = '1';
                     }
+
+                    // Show preview in upload area
+                    const outfitUrl = item.dataset.outfitUrl;
+                    outfitPreview.innerHTML = `<img src="${outfitUrl}" style="max-width: 100px; max-height: 100px; border-radius: 8px; margin: 5px;">`;
+                    outfitPreview.style.display = 'block';
+
+                    // Clear file input
+                    const fileInput = outfitUpload.querySelector('input[type="file"]');
+                    fileInput.value = '';
+
+                    console.log('Selected default outfit:', item.dataset.outfitPath);
                 });
+            });
+
+            // Handle file upload changes - clear gallery selections
+            const standingFileInput = document.querySelector('input[name="standing_photos[]"]');
+            const outfitFileInput = document.querySelector('input[name="outfit_photo"]');
+
+            standingFileInput.addEventListener('change', () => {
+                // Clear gallery selection when uploading new photo
+                galleryItems.forEach(i => i.classList.remove('selected'));
+                if (useStoredPhotoInput) {
+                    useStoredPhotoInput.value = '0';
+                }
+                if (storedPhotoIdInput) {
+                    storedPhotoIdInput.value = '';
+                }
+            });
+
+            outfitFileInput.addEventListener('change', () => {
+                // Clear gallery selection when uploading new outfit
+                outfitItems.forEach(i => i.classList.remove('selected'));
+                if (useDefaultOutfitInput) {
+                    useDefaultOutfitInput.value = '0';
+                }
+                if (defaultOutfitPathInput) {
+                    defaultOutfitPathInput.value = '';
+                }
             });
 
             // Handle privacy option changes
@@ -1330,16 +1193,16 @@ $csrfToken = Session::generateCSRFToken();
 
                 // Drag and drop
                 uploadElement.addEventListener('dragover', (e) => {
-                    e.preventDefault();
+            e.preventDefault();
                     uploadElement.classList.add('drag-over');
-                });
+        });
 
                 uploadElement.addEventListener('dragleave', () => {
                     uploadElement.classList.remove('drag-over');
-                });
+        });
 
                 uploadElement.addEventListener('drop', (e) => {
-                    e.preventDefault();
+            e.preventDefault();
                     uploadElement.classList.remove('drag-over');
 
                     const files = e.dataTransfer.files;
@@ -1506,9 +1369,9 @@ $csrfToken = Session::generateCSRFToken();
 
                 // Auto-remove success alerts after 5 seconds
                 if (type === 'success') {
-                    setTimeout(() => {
+            setTimeout(() => {
                         alertDiv.remove();
-                    }, 5000);
+            }, 5000);
                 }
             }
 
@@ -1593,13 +1456,15 @@ $csrfToken = Session::generateCSRFToken();
             // Form validation helper
             function validateForm() {
                 const useStoredPhoto = document.querySelector('input[name="use_stored_photo"]')?.value === '1';
+                const useDefaultOutfit = document.querySelector('input[name="use_default_outfit"]')?.value === '1';
                 const standingInput = document.querySelector('input[name="standing_photos[]"]');
+                const outfitInput = document.querySelector('input[name="outfit_photo"]');
 
                 // Check person photo
                 if (useStoredPhoto) {
-                    const selectedPhoto = document.querySelector('.stored-photo.selected');
+                    const selectedPhoto = document.querySelector('.gallery-item[data-photo-id].selected');
                     if (!selectedPhoto) {
-                        showAlert('Please select a photo of yourself', 'error');
+                        showAlert('Please select a photo of yourself from the gallery or upload a new one', 'error');
                         return false;
                     }
                 } else {
@@ -1609,26 +1474,22 @@ $csrfToken = Session::generateCSRFToken();
                     }
                 }
 
-                // Check outfit photo - determine which tab is active
-                const defaultOutfitTab = document.querySelector('[data-tab="default-outfits"]');
-                const isDefaultOutfitTabActive = defaultOutfitTab && defaultOutfitTab.classList.contains('active');
-                const outfitInput = document.querySelector('input[name="outfit_photo"]');
-
-                if (isDefaultOutfitTabActive) {
-                    const selectedOutfit = document.querySelector('.default-outfit.selected');
+                // Check outfit
+                if (useDefaultOutfit) {
+                    const selectedOutfit = document.querySelector('.gallery-item[data-outfit-path].selected');
                     if (!selectedOutfit) {
-                        showAlert('Please select a default outfit', 'error');
+                        showAlert('Please select a default outfit from the gallery or upload your own', 'error');
                         return false;
                     }
                     // Also check that the hidden input has the path
                     const defaultOutfitPath = document.querySelector('input[name="default_outfit_path"]');
                     if (!defaultOutfitPath || !defaultOutfitPath.value) {
-                        showAlert('Please select a default outfit', 'error');
+                        showAlert('Please select a default outfit from the gallery or upload your own', 'error');
                         return false;
                     }
                 } else {
                     if (!outfitInput.files.length) {
-                        showAlert('Please upload an outfit photo', 'error');
+                        showAlert('Please upload an outfit photo or select a default outfit', 'error');
                         return false;
                     }
                 }
@@ -1643,7 +1504,7 @@ $csrfToken = Session::generateCSRFToken();
                 }
 
                 // Add outfit photo files if uploading
-                if (!isDefaultOutfitTabActive && outfitInput.files) {
+                if (!useDefaultOutfit && outfitInput.files) {
                     filesToCheck.push(...outfitInput.files);
                 }
 
