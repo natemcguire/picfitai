@@ -897,6 +897,84 @@ $csrfToken = Session::generateCSRFToken();
                 margin-top: 0;
             }
         }
+
+        /* Sweet Alert Style */
+        .sweet-alert {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .sweet-alert-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: scale(0.8) translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .sweet-alert-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .sweet-alert-title {
+            color: #ff6b6b;
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .sweet-alert-message {
+            color: #666;
+            font-size: 1em;
+            margin-bottom: 25px;
+            line-height: 1.4;
+        }
+
+        .sweet-alert-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .sweet-alert-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -1104,52 +1182,25 @@ $csrfToken = Session::generateCSRFToken();
             const outfitUpload = document.getElementById('outfitUpload');
             const outfitPreview = document.getElementById('outfitPreview');
 
+            // Simple outfit selection - works on all devices
             outfitItems.forEach(item => {
-                // Add both click and touchstart for better mobile support
-                const handleSelection = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    console.log('Outfit item clicked/touched:', item.dataset.outfitPath);
-                    
+                item.addEventListener('click', () => {
                     // Remove selection from all outfit items
                     outfitItems.forEach(i => i.classList.remove('selected'));
 
                     // Select this item
                     item.classList.add('selected');
 
-                    // Update form data
-                    if (defaultOutfitPathInput) {
-                        defaultOutfitPathInput.value = item.dataset.outfitPath;
-                    }
-                    if (useDefaultOutfitInput) {
-                        useDefaultOutfitInput.value = '1';
-                    }
-
                     // Show preview in upload area
                     const outfitUrl = item.dataset.outfitUrl;
                     outfitPreview.innerHTML = `<img src="${outfitUrl}" style="max-width: 100px; max-height: 100px; border-radius: 8px; margin: 5px;">`;
                     outfitPreview.style.display = 'block';
 
-                    // Clear file input
+                    // Clear file input when selecting from gallery
                     const fileInput = outfitUpload.querySelector('input[type="file"]');
-                    fileInput.value = '';
-
-                    console.log('Selected default outfit:', item.dataset.outfitPath);
-                    console.log('Form state - use_default_outfit:', useDefaultOutfitInput?.value);
-                    console.log('Form state - default_outfit_path:', defaultOutfitPathInput?.value);
-                };
-
-                item.addEventListener('click', handleSelection);
-                item.addEventListener('touchstart', handleSelection, { passive: false });
-                
-                // Add visual feedback for mobile
-                item.addEventListener('touchstart', () => {
-                    item.style.transform = 'scale(0.95)';
-                });
-                
-                item.addEventListener('touchend', () => {
-                    item.style.transform = '';
+                    if (fileInput) {
+                        fileInput.value = '';
+                    }
                 });
             });
 
@@ -1171,30 +1222,7 @@ $csrfToken = Session::generateCSRFToken();
             outfitFileInput.addEventListener('change', () => {
                 // Clear gallery selection when uploading new outfit
                 outfitItems.forEach(i => i.classList.remove('selected'));
-                if (useDefaultOutfitInput) {
-                    useDefaultOutfitInput.value = '0';
-                }
-                if (defaultOutfitPathInput) {
-                    defaultOutfitPathInput.value = '';
-                }
-            });
-
-            // Mobile-specific: Add a fallback for outfit selection
-            // Sometimes touch events don't work properly, so we'll add a double-tap fallback
-            let lastTap = 0;
-            outfitItems.forEach(item => {
-                item.addEventListener('touchend', (e) => {
-                    const currentTime = new Date().getTime();
-                    const tapLength = currentTime - lastTap;
-                    if (tapLength < 500 && tapLength > 0) {
-                        // Double tap detected
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Double tap detected on outfit item');
-                        item.click(); // Trigger the click event
-                    }
-                    lastTap = currentTime;
-                });
+                outfitPreview.style.display = 'none';
             });
 
             // Handle privacy option changes
@@ -1303,18 +1331,7 @@ $csrfToken = Session::generateCSRFToken();
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
 
-                // Debug form state before validation
-                console.log('Form submission debug:');
-                console.log('use_stored_photo:', document.querySelector('input[name="use_stored_photo"]')?.value);
-                console.log('use_default_outfit:', document.querySelector('input[name="use_default_outfit"]')?.value);
-                console.log('stored_photo_id:', document.querySelector('input[name="stored_photo_id"]')?.value);
-                console.log('default_outfit_path:', document.querySelector('input[name="default_outfit_path"]')?.value);
-                console.log('Selected stored photo:', document.querySelector('.gallery-item[data-photo-id].selected'));
-                console.log('Selected default outfit:', document.querySelector('.gallery-item[data-outfit-path].selected'));
-                console.log('Outfit file input files:', document.querySelector('input[name="outfit_photo"]')?.files?.length || 0);
-                console.log('Is mobile:', /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
-
-                // Validate form first
+                // Simple validation - works on all devices
                 if (!validateForm()) {
                     return;
                 }
@@ -1505,69 +1522,91 @@ $csrfToken = Session::generateCSRFToken();
                 }
             }
 
-            // Form validation helper
+            // Clean form validation - single version for all devices
             function validateForm() {
+                // 1. Check if user has a photo (stored or uploaded)
                 const useStoredPhoto = document.querySelector('input[name="use_stored_photo"]')?.value === '1';
-                const useDefaultOutfit = document.querySelector('input[name="use_default_outfit"]')?.value === '1';
+                const selectedPhoto = document.querySelector('.gallery-item[data-photo-id].selected');
                 const standingInput = document.querySelector('input[name="standing_photos[]"]');
+
+                if (useStoredPhoto && !selectedPhoto) {
+                    showSweetAlert('Pick a photo of yourself!', 'Please select one from your gallery or upload a new one.');
+                    return false;
+                }
+
+                if (!useStoredPhoto && (!standingInput || !standingInput.files.length)) {
+                    showSweetAlert('Upload a photo of yourself!', 'We need a photo of you to create the try-on.');
+                    return false;
+                }
+
+                // 2. Check if user has an outfit (this is the main check)
+                const selectedOutfit = document.querySelector('.gallery-item[data-outfit-path].selected');
                 const outfitInput = document.querySelector('input[name="outfit_photo"]');
 
-                // Check person photo
-                if (useStoredPhoto) {
-                    const selectedPhoto = document.querySelector('.gallery-item[data-photo-id].selected');
-                    if (!selectedPhoto) {
-                        showAlert('Please select a photo of yourself from the gallery or upload a new one', 'error');
-                        return false;
-                    }
-                } else {
-                    if (!standingInput.files.length) {
-                        showAlert('Please upload at least one photo of yourself', 'error');
-                        return false;
-                    }
+                if (!selectedOutfit && (!outfitInput || !outfitInput.files.length)) {
+                    showSweetAlert('Pick an outfit photo!', 'Choose from our gallery or upload your own outfit.');
+                    return false;
                 }
 
-                // Check outfit
-                if (useDefaultOutfit) {
-                    const selectedOutfit = document.querySelector('.gallery-item[data-outfit-path].selected');
-                    if (!selectedOutfit) {
-                        showAlert('Please select a default outfit from the gallery or upload your own', 'error');
-                        return false;
-                    }
-                    // Also check that the hidden input has the path
-                    const defaultOutfitPath = document.querySelector('input[name="default_outfit_path"]');
-                    if (!defaultOutfitPath || !defaultOutfitPath.value) {
-                        showAlert('Please select a default outfit from the gallery or upload your own', 'error');
-                        return false;
-                    }
+                // 3. Update form inputs to match selections
+                if (selectedOutfit) {
+                    document.querySelector('input[name="use_default_outfit"]').value = '1';
+                    document.querySelector('input[name="default_outfit_path"]').value = selectedOutfit.dataset.outfitPath;
                 } else {
-                    if (!outfitInput.files.length) {
-                        showAlert('Please upload an outfit photo or select a default outfit', 'error');
-                        return false;
-                    }
+                    document.querySelector('input[name="use_default_outfit"]').value = '0';
+                    document.querySelector('input[name="default_outfit_path"]').value = '';
                 }
 
-                // Check file sizes for uploaded files only
+                // 4. Check file sizes
                 const maxSize = 10 * 1024 * 1024; // 10MB
                 const filesToCheck = [];
 
-                // Add standing photo files if uploading
-                if (!useStoredPhoto && standingInput.files) {
-                    filesToCheck.push(...standingInput.files);
+                if (!useStoredPhoto && standingInput?.files) {
+                    Array.from(standingInput.files).forEach(file => filesToCheck.push(file));
                 }
 
-                // Add outfit photo files if uploading
-                if (!useDefaultOutfit && outfitInput.files) {
-                    filesToCheck.push(...outfitInput.files);
+                if (!selectedOutfit && outfitInput?.files) {
+                    Array.from(outfitInput.files).forEach(file => filesToCheck.push(file));
                 }
 
                 for (const file of filesToCheck) {
                     if (file.size > maxSize) {
-                        showAlert(`File "${file.name}" is too large. Maximum size is 10MB.`, 'error');
+                        showSweetAlert('File too large!', `"${file.name}" is too big. Max size is 10MB.`);
                         return false;
                     }
                 }
 
                 return true;
+            }
+
+            // Sweet alert style notification
+            function showSweetAlert(title, message) {
+                // Remove any existing alerts
+                const existingAlert = document.querySelector('.sweet-alert');
+                if (existingAlert) {
+                    existingAlert.remove();
+                }
+
+                // Create sweet alert
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'sweet-alert';
+                alertDiv.innerHTML = `
+                    <div class="sweet-alert-content">
+                        <div class="sweet-alert-icon">⚠️</div>
+                        <h3 class="sweet-alert-title">${title}</h3>
+                        <p class="sweet-alert-message">${message}</p>
+                        <button class="sweet-alert-button" onclick="this.parentElement.parentElement.remove()">OK</button>
+                    </div>
+                `;
+
+                document.body.appendChild(alertDiv);
+
+                // Auto-remove after 5 seconds
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
             }
 
             // Poll job status for background jobs
