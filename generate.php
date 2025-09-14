@@ -202,7 +202,7 @@ $csrfToken = Session::generateCSRFToken();
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #ffeef8 0%, #ffe0f7 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -214,27 +214,6 @@ $csrfToken = Session::generateCSRFToken();
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             overflow: hidden;
-        }
-
-        .header {
-            background: #2c3e50;
-            color: white;
-            padding: 30px 20px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-
-        .credits {
-            background: #27ae60;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            display: inline-block;
-            font-weight: bold;
         }
 
         .form-container {
@@ -603,12 +582,12 @@ $csrfToken = Session::generateCSRFToken();
     </style>
 </head>
 <body>
+    <?php include __DIR__ . '/includes/nav.php'; ?>
+
     <div class="container">
-        <div class="header">
-            <h1>AI Virtual Try-On</h1>
-            <div style="margin-top: 15px;">
-                <span class="credits">💎 <?= number_format($credits, ($credits == floor($credits)) ? 0 : 1) ?> Credits</span>
-            </div>
+        <div style="background: linear-gradient(45deg, #ff6b9d, #4ecdc4); color: white; padding: 30px 20px; text-align: center; border-radius: 15px; margin-bottom: 20px;">
+            <h1 style="font-size: 2em; margin-bottom: 10px;">AI Virtual Try-On</h1>
+            <p style="opacity: 0.9;">Transform your style with AI - upload photos and see how outfits look on you!</p>
         </div>
 
         <div class="form-container">
