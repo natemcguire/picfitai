@@ -104,6 +104,13 @@ $imageUrl = $generation['result_url'];
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Poppins:wght@300;400;600;700&display=swap');
 
+        :root {
+            --header-h: 64px;
+            --cta-h: 60px;
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -121,14 +128,13 @@ $imageUrl = $generation['result_url'];
             );
             background-size: 400% 400%;
             animation: gradientShift 8s ease infinite;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            display: block;
+            padding-top: calc(var(--header-h) + var(--safe-top) + 12px);
+            padding-bottom: calc(var(--cta-h) + var(--safe-bottom) + 16px);
             color: #2c3e50;
             position: relative;
-            overflow-x: hidden;
         }
 
         @keyframes gradientShift {
@@ -172,9 +178,9 @@ $imageUrl = $generation['result_url'];
         }
 
         .polaroid-container {
-            position: relative;
             max-width: 500px;
-            width: 100%;
+            margin: 0 auto;
+            padding: 0 12px;
         }
 
         .polaroid {
@@ -235,7 +241,8 @@ $imageUrl = $generation['result_url'];
 
         .photo-frame {
             width: 100%;
-            height: 400px;
+            aspect-ratio: 4 / 5;
+            height: auto;
             background: linear-gradient(135deg, #f8f9fa 0%, #fff 50%, #f1f3f4 100%);
             border: 3px solid transparent;
             background-image: linear-gradient(white, white), linear-gradient(45deg, #ff9a9e, #fecfef, #a8e6cf);
@@ -289,9 +296,9 @@ $imageUrl = $generation['result_url'];
             background: rgba(255,255,255,0.95);
             border: none;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            font-size: 24px;
+            width: 42px;
+            height: 42px;
+            font-size: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
@@ -309,28 +316,30 @@ $imageUrl = $generation['result_url'];
         }
 
         .nav-prev {
-            left: -70px;
+            left: 8px;
         }
 
         .nav-next {
-            right: -70px;
+            right: 8px;
         }
 
         .viral-signup {
             position: fixed;
-            bottom: 120px;
+            bottom: calc(12px + var(--safe-bottom));
             left: 50%;
             transform: translateX(-50%);
+            z-index: 1100;
+            height: var(--cta-h);
+            line-height: calc(var(--cta-h) - 8px);
+            padding: 0 24px;
             background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
             color: white;
-            padding: 18px 35px;
             border-radius: 50px;
             text-decoration: none;
             font-weight: 700;
             font-family: 'Fredoka One', cursive;
             box-shadow: 0 6px 25px rgba(255, 107, 157, 0.4);
             transition: all 0.3s ease;
-            z-index: 1000;
             animation: bubbleFloat 3s ease-in-out infinite;
             border: 3px solid rgba(255, 255, 255, 0.3);
             backdrop-filter: blur(10px);
@@ -351,18 +360,19 @@ $imageUrl = $generation['result_url'];
         }
 
         .header-nav {
-            position: fixed;
-            top: 25px;
-            left: 25px;
-            right: 25px;
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: calc(10px + var(--safe-top)) 16px 10px;
+            margin: 0 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            z-index: 1000;
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(20px);
             border-radius: 20px;
-            padding: 15px 25px;
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
@@ -415,7 +425,7 @@ $imageUrl = $generation['result_url'];
         }
 
         .share-section {
-            margin-top: 25px;
+            margin: 18px 0 0;
             text-align: center;
         }
 
@@ -520,7 +530,7 @@ $imageUrl = $generation['result_url'];
         }
 
         .rating-section {
-            margin: 20px 0;
+            margin: 18px 0;
             text-align: center;
         }
 
@@ -611,28 +621,25 @@ $imageUrl = $generation['result_url'];
         @media (max-width: 768px) {
             .polaroid-container {
                 max-width: 350px;
+                padding: 0 8px;
             }
 
             .polaroid {
                 padding: 15px 15px 50px 15px;
             }
 
-            .photo-frame {
-                height: 300px;
-            }
-
             .navigation {
-                width: 40px;
-                height: 40px;
-                font-size: 20px;
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
             }
 
             .nav-prev {
-                left: -50px;
+                left: 4px;
             }
 
             .nav-next {
-                right: -50px;
+                right: 4px;
             }
         }
     </style>

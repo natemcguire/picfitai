@@ -1013,35 +1013,6 @@ $csrfToken = Session::generateCSRFToken();
                     </div>
                 </div>
 
-                <?php if (!empty($userPhotos)): ?>
-                <div class="previous-generations-section">
-                    <h3>📸 Your Saved Photos</h3>
-                    <p style="color: #7f8c8d; font-size: 0.9em; margin-bottom: 15px;">
-                        Click any photo to use it for generation
-                    </p>
-                    <div class="generation-thumbnails">
-                        <?php foreach ($userPhotos as $photo): ?>
-                            <div class="generation-thumbnail user-photo-thumbnail"
-                                 data-photo-id="<?= htmlspecialchars($photo['id']) ?>"
-                                 data-filename="<?= htmlspecialchars($photo['filename']) ?>"
-                                 title="<?= htmlspecialchars($photo['original_name']) ?>">
-                                <img src="<?= htmlspecialchars($photo['url']) ?>"
-                                     alt="<?= htmlspecialchars($photo['original_name']) ?>"
-                                     loading="lazy">
-                                <div class="thumbnail-overlay">
-                                    <div class="thumbnail-date">
-                                        <?= date('M j', strtotime($photo['created_at'])) ?>
-                                    </div>
-                                    <?php if ($photo['is_primary']): ?>
-                                        <div class="thumbnail-primary">⭐</div>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-
                 <div class="privacy-section">
                     <h3>🔒 Privacy Settings</h3>
                     <div class="privacy-options">
