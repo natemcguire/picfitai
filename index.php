@@ -22,7 +22,7 @@ $user = Session::getCurrentUser();
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #ffeef8 0%, #ffe0f7 100%);
             min-height: 100vh;
             color: #333;
             line-height: 1.6;
@@ -34,50 +34,6 @@ $user = Session::getCurrentUser();
             padding: 0 20px;
         }
 
-        /* Header */
-        .header {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 0;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: white;
-            text-decoration: none;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .credits-badge {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .text-secondary {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.9rem;
-        }
 
         .btn {
             display: inline-block;
@@ -103,14 +59,117 @@ $user = Session::getCurrentUser();
         }
 
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(0, 0, 0, 0.15);
+            color: #333;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(0, 0, 0, 0.25);
+            color: #000;
             transform: translateY(-2px);
+        }
+
+
+        /* Polaroid Photo Section */
+        .polaroid-showcase {
+            padding: 4rem 0;
+            text-align: center;
+        }
+
+        .polaroid-container {
+            position: relative;
+            max-width: 400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .polaroid {
+            background: linear-gradient(145deg, #fff 0%, #fefefe 100%);
+            padding: 20px 20px 60px 20px;
+            box-shadow:
+                0 0 0 3px rgba(255, 255, 255, 0.8),
+                0 0 0 6px rgba(255, 182, 193, 0.4),
+                0 0 0 9px rgba(255, 218, 185, 0.3),
+                0 0 0 12px rgba(255, 255, 186, 0.2),
+                0 8px 32px rgba(255, 107, 157, 0.3),
+                0 16px 64px rgba(255, 107, 157, 0.2),
+                0 0 80px rgba(255, 182, 193, 0.1);
+            transform: rotate(-2deg) translateY(-10px);
+            position: relative;
+            border-radius: 15px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background-image:
+                radial-gradient(circle at 20% 20%, rgba(255, 182, 193, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(173, 216, 230, 0.1) 0%, transparent 50%);
+        }
+
+        .polaroid::before {
+            content: '';
+            position: absolute;
+            bottom: -50px;
+            left: 5%;
+            right: 5%;
+            height: 50px;
+            background: radial-gradient(ellipse at center,
+                rgba(255, 107, 157, 0.3) 0%,
+                rgba(255, 107, 157, 0.1) 40%,
+                transparent 70%);
+            filter: blur(30px);
+            z-index: -1;
+        }
+
+        .polaroid:hover {
+            transform: rotate(1deg) scale(1.03) translateY(-20px);
+            box-shadow:
+                0 0 0 3px rgba(255, 255, 255, 0.9),
+                0 0 0 6px rgba(255, 182, 193, 0.6),
+                0 0 0 9px rgba(255, 218, 185, 0.5),
+                0 0 0 12px rgba(255, 255, 186, 0.4),
+                0 12px 48px rgba(255, 107, 157, 0.4),
+                0 24px 96px rgba(255, 107, 157, 0.3),
+                0 0 120px rgba(255, 182, 193, 0.2);
+        }
+
+        .photo-frame {
+            width: 100%;
+            height: 300px;
+            background: #f8f8f8;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 30%;
+            transition: all 0.3s ease;
+        }
+
+        .caption {
+            position: absolute;
+            bottom: 15px;
+            left: 25px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            color: #333;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+        }
+
+        @media (max-width: 768px) {
+            .polaroid-container {
+                max-width: 300px;
+            }
+            .polaroid {
+                padding: 15px 15px 45px 15px;
+            }
+            .photo-frame {
+                height: 250px;
+            }
         }
 
         .btn-lg {
@@ -137,14 +196,13 @@ $user = Session::getCurrentUser();
         .hero-title {
             font-size: 3.5rem;
             font-weight: bold;
-            color: white;
+            color: #333;
             margin-bottom: 1.5rem;
-            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
             line-height: 1.2;
         }
 
         .text-gradient {
-            background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+            background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -152,7 +210,7 @@ $user = Session::getCurrentUser();
 
         .hero-description {
             font-size: 1.3rem;
-            color: rgba(255, 255, 255, 0.9);
+            color: #666;
             margin-bottom: 3rem;
             max-width: 600px;
             margin-left: auto;
@@ -181,10 +239,9 @@ $user = Session::getCurrentUser();
         .section-title {
             font-size: 2.5rem;
             font-weight: bold;
-            color: white;
+            color: #333;
             text-align: center;
             margin-bottom: 3rem;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .grid {
@@ -225,13 +282,13 @@ $user = Session::getCurrentUser();
 
         .card h3 {
             font-size: 1.5rem;
-            color: white;
+            color: #333;
             margin-bottom: 1rem;
             font-weight: 600;
         }
 
         .card p {
-            color: rgba(255, 255, 255, 0.8);
+            color: #666;
             line-height: 1.6;
         }
 
@@ -252,7 +309,7 @@ $user = Session::getCurrentUser();
         }
 
         .text-muted {
-            color: rgba(255, 255, 255, 0.7);
+            color: #666;
         }
 
         .mb-lg {
@@ -359,29 +416,7 @@ $user = Session::getCurrentUser();
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <div class="header-content">
-                <a href="/" class="logo">PicFit.ai</a>
-                <div class="nav-links">
-                    <?php if ($user): ?>
-                        <div class="credits-badge">
-                            💎 <?= number_format($user['credits_remaining'], ($user['credits_remaining'] == floor($user['credits_remaining'])) ? 0 : 1) ?> Credits
-                        </div>
-                        <span class="text-secondary">
-                            <?= htmlspecialchars($user['name']) ?>
-                        </span>
-                        <a href="/dashboard.php" class="btn btn-secondary">Dashboard</a>
-                        <a href="/auth/logout.php" class="nav-link">Logout</a>
-                    <?php else: ?>
-                        <span class="text-muted hidden sm:inline">First fit is free</span>
-                        <a href="/auth/login.php" class="btn btn-primary">Get Started</a>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </header>
+    <?php include __DIR__ . '/includes/nav.php'; ?>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -408,6 +443,22 @@ $user = Session::getCurrentUser();
                     <a href="/pricing.php" class="btn btn-secondary btn-lg">
                         View Pricing
                     </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Polaroid Photo Showcase -->
+    <section class="polaroid-showcase">
+        <div class="container">
+            <div class="polaroid-container">
+                <div class="polaroid">
+                    <div class="photo-frame">
+                        <img src="/images/outfits/outfit-girl-3.png" alt="AI Virtual Try-On Example" class="photo">
+                    </div>
+                    <div class="caption">
+                        AI Virtual Try-On Magic ✨
+                    </div>
                 </div>
             </div>
         </div>

@@ -46,7 +46,14 @@ class BackgroundJobService {
         $outfitPath = $tempDir . '/' . $outfitFilename;
         $savedOutfitPhoto = null;
 
-        if (move_uploaded_file($outfitPhoto['tmp_name'], $outfitPath)) {
+        // Check if file is uploaded or already on disk (default outfit)
+        if (is_uploaded_file($outfitPhoto['tmp_name'])) {
+            $success = move_uploaded_file($outfitPhoto['tmp_name'], $outfitPath);
+        } else {
+            $success = copy($outfitPhoto['tmp_name'], $outfitPath);
+        }
+
+        if ($success) {
             $savedOutfitPhoto = [
                 'path' => $outfitPath,
                 'type' => $outfitPhoto['type'],

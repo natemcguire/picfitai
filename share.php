@@ -54,6 +54,30 @@ $stmt = $pdo->prepare('
 $stmt->execute([$generation['id']]);
 $prevPhoto = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Get rating counts for this photo
+$stmt = $pdo->prepare('
+    SELECT
+        SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as likes,
+        SUM(CASE WHEN rating = -1 THEN 1 ELSE 0 END) as dislikes,
+        COUNT(*) as total_ratings
+    FROM photo_ratings
+    WHERE generation_id = ?
+');
+$stmt->execute([$generation['id']]);
+$ratings = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// Check if current user has already rated this photo
+$userRating = null;
+$ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+if ($ipAddress) {
+    $stmt = $pdo->prepare('SELECT rating FROM photo_ratings WHERE generation_id = ? AND ip_address = ?');
+    $stmt->execute([$generation['id'], $ipAddress]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($result) {
+        $userRating = (int) $result['rating'];
+    }
+}
+
 $pageTitle = 'PicFit.ai - AI Virtual Try-On';
 $shareUrl = 'https://picfit.ai/share/' . $shareToken;
 $imageUrl = $generation['result_url'];
@@ -225,10 +249,11 @@ $imageUrl = $generation['result_url'];
         .photo {
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            object-fit: cover;
             display: block;
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            object-position: center top;
         }
 
         .caption {
@@ -493,6 +518,93 @@ $imageUrl = $generation['result_url'];
             box-shadow: 0 6px 20px rgba(66, 103, 178, 0.4);
         }
 
+        .rating-section {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .rating-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .rating-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(255, 182, 193, 0.3);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            backdrop-filter: blur(10px);
+            user-select: none;
+        }
+
+        .rating-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 1);
+            border-color: rgba(255, 182, 193, 0.5);
+            box-shadow: 0 4px 15px rgba(255, 182, 193, 0.3);
+        }
+
+        .rating-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .rating-btn.active {
+            background: linear-gradient(45deg, #ff6b9d, #ff8fab);
+            color: white;
+            border-color: #ff6b9d;
+            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+        }
+
+        .rating-btn.active:hover {
+            background: linear-gradient(45deg, #ff8fab, #ffafc9);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.5);
+        }
+
+        .rating-btn.thumbs-up.active {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            border-color: #4ecdc4;
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+        }
+
+        .rating-btn.thumbs-up.active:hover {
+            background: linear-gradient(45deg, #5fd8cf, #4ecdc4);
+            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.5);
+        }
+
+        .rating-display {
+            font-size: 14px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .rating-display.has-ratings {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .rating-emoji {
+            font-size: 20px;
+        }
+
+        .rating-count {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
         @media (max-width: 768px) {
             .polaroid-container {
                 max-width: 350px;
@@ -558,6 +670,33 @@ $imageUrl = $generation['result_url'];
             </div>
         </div>
 
+        <!-- Rating Section -->
+        <div class="rating-section">
+            <div class="rating-buttons">
+                <button class="rating-btn thumbs-up <?= $userRating === 1 ? 'active' : '' ?>" onclick="ratePhoto(1)" id="thumbsUpBtn">
+                    <span class="rating-emoji">👍</span>
+                    <span class="rating-count" id="likesCount"><?= (int)($ratings['likes'] ?? 0) ?></span>
+                </button>
+                <button class="rating-btn thumbs-down <?= $userRating === -1 ? 'active' : '' ?>" onclick="ratePhoto(-1)" id="thumbsDownBtn">
+                    <span class="rating-emoji">👎</span>
+                    <span class="rating-count" id="dislikesCount"><?= (int)($ratings['dislikes'] ?? 0) ?></span>
+                </button>
+            </div>
+
+            <?php
+            $totalRatings = (int)($ratings['total_ratings'] ?? 0);
+            if ($totalRatings > 0):
+            ?>
+                <div class="rating-display has-ratings">
+                    <?= number_format((int)($ratings['likes'] ?? 0)) ?> likes, <?= number_format((int)($ratings['dislikes'] ?? 0)) ?> dislikes
+                </div>
+            <?php else: ?>
+                <div class="rating-display" id="noRatingsText">
+                    Be the first to rate this photo!
+                </div>
+            <?php endif; ?>
+        </div>
+
         <div class="share-section">
             <div class="url-copy-field">
                 <input type="text" class="url-input" value="<?= htmlspecialchars($shareUrl) ?>" readonly id="shareUrl">
@@ -578,6 +717,72 @@ $imageUrl = $generation['result_url'];
     </a>
 
     <script>
+        // Generation ID for rating
+        const generationId = <?= (int)$generation['id'] ?>;
+
+        // Photo rating function
+        async function ratePhoto(rating) {
+            const thumbsUpBtn = document.getElementById('thumbsUpBtn');
+            const thumbsDownBtn = document.getElementById('thumbsDownBtn');
+            const likesCount = document.getElementById('likesCount');
+            const dislikesCount = document.getElementById('dislikesCount');
+            const noRatingsText = document.getElementById('noRatingsText');
+
+            try {
+                // Disable buttons temporarily
+                thumbsUpBtn.disabled = true;
+                thumbsDownBtn.disabled = true;
+
+                const response = await fetch('/api/rate_photo.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        generation_id: generationId,
+                        rating: rating
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update counts
+                    likesCount.textContent = result.counts.likes;
+                    dislikesCount.textContent = result.counts.dislikes;
+
+                    // Update active states
+                    thumbsUpBtn.classList.toggle('active', rating === 1);
+                    thumbsDownBtn.classList.toggle('active', rating === -1);
+
+                    // Update rating display
+                    if (result.counts.total > 0 && noRatingsText) {
+                        noRatingsText.innerHTML = `<div class="rating-display has-ratings">${result.counts.likes} likes, ${result.counts.dislikes} dislikes</div>`;
+                        noRatingsText.className = 'rating-display has-ratings';
+                    }
+
+                    // Add sparkle effect
+                    const activeBtn = rating === 1 ? thumbsUpBtn : thumbsDownBtn;
+                    activeBtn.style.animation = 'copySuccess 0.6s ease';
+                    setTimeout(() => {
+                        activeBtn.style.animation = '';
+                    }, 600);
+
+                } else {
+                    console.error('Rating failed:', result.error);
+                    alert('Failed to submit rating. Please try again.');
+                }
+
+            } catch (error) {
+                console.error('Rating error:', error);
+                alert('Failed to submit rating. Please try again.');
+            } finally {
+                // Re-enable buttons
+                thumbsUpBtn.disabled = false;
+                thumbsDownBtn.disabled = false;
+            }
+        }
+
         // Copy URL function
         function copyUrl() {
             const urlInput = document.getElementById('shareUrl');

@@ -57,9 +57,8 @@ foreach ($userPhotos as &$photo) {
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #ffeef8 0%, #ffe0f7 100%);
             min-height: 100vh;
-            padding: 20px;
         }
 
         .container {
@@ -69,13 +68,6 @@ foreach ($userPhotos as &$photo) {
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             overflow: hidden;
-        }
-
-        .header {
-            background: #2c3e50;
-            color: white;
-            padding: 30px 20px;
-            text-align: center;
         }
 
         .header h1 {
@@ -118,6 +110,38 @@ foreach ($userPhotos as &$photo) {
             border-radius: 20px;
             display: inline-block;
             font-weight: bold;
+        }
+
+        /* Navigation Buttons */
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            padding: 0.5rem 1.2rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-btn.primary {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .nav-btn.primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 25px rgba(255, 107, 107, 0.4);
         }
 
         .content {
@@ -535,20 +559,10 @@ foreach ($userPhotos as &$photo) {
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Dashboard</h1>
-            <div class="header-nav">
-                <div class="nav-links">
-                    <a href="/generate.php">✨ Generate</a>
-                    <a href="/pricing.php">💳 Pricing</a>
-                    <a href="/auth/logout.php">Logout</a>
-                </div>
-                <div class="credits">💎 <?= number_format($user['credits_remaining'], ($user['credits_remaining'] == floor($user['credits_remaining'])) ? 0 : 1) ?> Credits</div>
-            </div>
-        </div>
+    <?php include __DIR__ . '/includes/nav.php'; ?>
 
-        <div class="content">
+    <div class="container">
+        <div class="content" style="padding-top: 30px;">
             <!-- Welcome & Quick Actions -->
             <div class="welcome">
                 <h2>Welcome back, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?>!</h2>
