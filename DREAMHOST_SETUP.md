@@ -12,13 +12,13 @@ The application uses background job processing for AI image generation. To enabl
 
 ```bash
 # Run every minute to process background jobs
-* * * * * /usr/local/php82/bin/php /home/yourusername/picfitai/process_jobs.php
+* * * * * /usr/local/php82/bin/php /home/natemcguirellc/Projects/picfitai/process_jobs.php
 
 # Alternative: Run every 2 minutes (less frequent but still responsive)
-*/2 * * * * /usr/local/php82/bin/php /home/yourusername/picfitai/process_jobs.php
+*/2 * * * * /usr/local/php82/bin/php /home/natemcguirellc/Projects/picfitai/process_jobs.php
 ```
 
-**Important**: Replace `/home/yourusername/picfitai/` with your actual path to the project.
+**Important**: Replace `/home/natemcguirellc/Projects/picfitai/` with your actual path to the project.
 
 ### Step 2: Ensure Directory Permissions
 
@@ -38,7 +38,7 @@ chmod 644 data/app.sqlite  # If it exists
 You can manually test the background job processor:
 
 ```bash
-cd /home/yourusername/picfitai
+cd /home/natemcguirellc/Projects/picfitai
 /usr/local/php82/bin/php process_jobs.php
 ```
 

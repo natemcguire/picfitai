@@ -38,7 +38,7 @@ $outfitOptions = [];
 $outfitsDir = __DIR__ . '/images/outfits/';
 
 // Debug info (can be enabled temporarily to diagnose issues)
-$debugOutfits = false; // Set to true to enable debugging
+$debugOutfits = true; // Set to true to enable debugging
 if ($debugOutfits) {
     error_log("Outfits directory: " . $outfitsDir);
     error_log("Directory exists: " . (is_dir($outfitsDir) ? 'Yes' : 'No'));
