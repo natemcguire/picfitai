@@ -9,27 +9,9 @@
 # Disable server signature (if allowed)
 ServerSignature Off
 
-# Increase PHP limits for image uploads (only if mod_php is available)
-<IfModule mod_php7.c>
-    php_value upload_max_filesize 50M
-    php_value post_max_size 100M
-    php_value max_file_uploads 20
-    php_value max_execution_time 300
-    php_value max_input_time 300
-    php_value memory_limit 256M
-    php_flag file_uploads On
-</IfModule>
-
-# For PHP 8+ (if available)
-<IfModule mod_php.c>
-    php_value upload_max_filesize 50M
-    php_value post_max_size 100M
-    php_value max_file_uploads 20
-    php_value max_execution_time 300
-    php_value max_input_time 300
-    php_value memory_limit 256M
-    php_flag file_uploads On
-</IfModule>
+# PHP configuration moved to php.ini or .user.ini for PHP-FPM
+# DreamHost VPS uses PHP-FPM, so php_value directives don't work in .htaccess
+# These settings should be configured via DreamHost control panel or .user.ini file
 
 # Security headers (only if mod_headers is available)
 <IfModule mod_headers.c>
