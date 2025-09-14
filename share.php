@@ -131,7 +131,7 @@ $imageUrl = $generation['result_url'];
             min-height: 100dvh;
             overflow-x: hidden;
             display: block;
-            padding-top: calc(var(--header-h) + var(--safe-top) + 12px);
+            padding-top: calc(var(--header-h) + 20px);
             padding-bottom: calc(var(--cta-h) + var(--safe-bottom) + 16px);
             color: #2c3e50;
             position: relative;
@@ -180,7 +180,7 @@ $imageUrl = $generation['result_url'];
         .polaroid-container {
             max-width: 500px;
             margin: 0 auto;
-            padding: 0 12px;
+            padding: 20px 12px 0;
         }
 
         .polaroid {
@@ -360,20 +360,19 @@ $imageUrl = $generation['result_url'];
         }
 
         .header-nav {
-            position: sticky;
-            top: 0;
+            position: fixed;
+            top: var(--safe-top, 0);
             left: 0;
             right: 0;
             z-index: 1000;
-            padding: calc(10px + var(--safe-top)) 16px 10px;
-            margin: 0 8px;
+            padding: 12px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-bottom: 1px solid rgba(255, 182, 193, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         }
 
         .logo {
@@ -621,7 +620,20 @@ $imageUrl = $generation['result_url'];
         @media (max-width: 768px) {
             .polaroid-container {
                 max-width: 350px;
-                padding: 0 8px;
+                padding: 10px 8px 0;
+            }
+
+            .header-nav {
+                padding: 10px 12px;
+            }
+
+            .logo {
+                font-size: 24px;
+            }
+
+            .nav-btn {
+                padding: 10px 18px;
+                font-size: 13px;
             }
 
             .polaroid {
@@ -656,6 +668,18 @@ $imageUrl = $generation['result_url'];
     </div>
 
     <div class="polaroid-container">
+        <?php
+        // Check if this is the user's own photo and they just created it
+        $isOwner = $user && $user['id'] == $generation['user_id'];
+        $justCreated = isset($_GET['new']) && $_GET['new'] === '1';
+
+        if ($isOwner && $justCreated):
+        ?>
+            <div class="status-message success" style="margin-bottom: 20px; padding: 20px; background: linear-gradient(45deg, #4ecdc4, #44a08d); color: white; border-radius: 15px; text-align: center; font-weight: 600; box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);">
+                🎉 Congratulations! Your AI try-on is ready! Share it with friends or generate another.
+            </div>
+        <?php endif; ?>
+
         <?php if ($prevPhoto): ?>
             <a href="/share/<?= htmlspecialchars($prevPhoto['share_token']) ?>" class="navigation nav-prev" title="Previous photo">
                 ←
@@ -673,7 +697,11 @@ $imageUrl = $generation['result_url'];
                 <img src="<?= htmlspecialchars($imageUrl) ?>" alt="AI Virtual Try-On Result" class="photo">
             </div>
             <div class="caption">
-                AI Virtual Try-On Magic ✨
+                <?php if ($user && $user['id'] == $generation['user_id']): ?>
+                    Your AI Try-On Creation! 🎉
+                <?php else: ?>
+                    AI Virtual Try-On Magic ✨
+                <?php endif; ?>
             </div>
             <div class="date">
                 <?= date('M j, Y', strtotime($generation['completed_at'])) ?>

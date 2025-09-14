@@ -226,22 +226,27 @@ foreach ($userPhotos as &$photo) {
         .generation-item {
             background: white;
             border-radius: 10px;
-            padding: 20px;
+            padding: 15px;
             margin-bottom: 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             display: flex;
-            justify-content: space-between;
+            gap: 15px;
             align-items: center;
+        }
+
+        .generation-info {
+            flex: 1;
         }
 
         .generation-info h4 {
             color: #2c3e50;
             margin-bottom: 5px;
+            font-size: 1em;
         }
 
         .generation-info .date {
             color: #7f8c8d;
-            font-size: 0.9em;
+            font-size: 0.85em;
             margin-bottom: 5px;
         }
 
@@ -281,17 +286,18 @@ foreach ($userPhotos as &$photo) {
 
         .result-thumbnail {
             display: inline-block;
-            width: 50px;
-            height: 50px;
-            border-radius: 8px;
+            width: 80px;
+            height: 80px;
+            border-radius: 10px;
             overflow: hidden;
             border: 2px solid #667eea;
             transition: all 0.3s ease;
             box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            flex-shrink: 0;
         }
 
         .result-thumbnail:hover {
-            transform: scale(1.1);
+            transform: scale(1.05);
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
         }
 
@@ -299,7 +305,42 @@ foreach ($userPhotos as &$photo) {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            object-position: center top;
             display: block;
+        }
+
+        .generation-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .copy-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 8px;
+            cursor: pointer;
+            color: #6c757d;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+        }
+
+        .copy-btn:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .copy-btn.copied {
+            background: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
         }
 
         .empty-state {
@@ -551,15 +592,165 @@ foreach ($userPhotos as &$photo) {
             }
 
             .generation-item {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 15px;
+                padding: 12px;
+                gap: 12px;
+            }
+
+            .result-thumbnail {
+                width: 70px;
+                height: 70px;
+            }
+
+            .generation-info h4 {
+                font-size: 0.95em;
+            }
+
+            .generation-info .date {
+                font-size: 0.8em;
+            }
+
+            .status-badge {
+                font-size: 0.75em;
+                padding: 3px 8px;
+            }
+
+            .copy-btn {
+                min-width: 32px;
+                height: 32px;
+                padding: 6px;
+                font-size: 14px;
             }
         }
     </style>
 </head>
 <body>
-    <?php include __DIR__ . '/includes/nav.php'; ?>
+    <?php
+    // Dashboard-specific nav without logo
+    Session::start();
+    $user = Session::getCurrentUser();
+    ?>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
+        .header-nav {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 15px;
+            padding: 12px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .nav-btn {
+            padding: 8px 16px;
+            background: linear-gradient(45deg, #ff6b9d 0%, #ff8fab 50%, #ff6b9d 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 13px;
+            box-shadow: 0 2px 8px rgba(255, 107, 157, 0.3);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+        }
+
+        .nav-btn.secondary {
+            background: linear-gradient(45deg, #4ecdc4 0%, #44a08d 50%, #4ecdc4 100%);
+            box-shadow: 0 2px 8px rgba(78, 205, 196, 0.3);
+        }
+
+        .nav-btn.secondary:hover {
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+        }
+
+        .nav-btn.tertiary {
+            background: rgba(108, 117, 125, 0.1);
+            color: #6c757d;
+            border: 1px solid rgba(108, 117, 125, 0.2);
+            box-shadow: 0 2px 8px rgba(108, 117, 125, 0.1);
+        }
+
+        .nav-btn.tertiary:hover {
+            background: rgba(108, 117, 125, 0.2);
+            color: #495057;
+        }
+
+        .credits-badge {
+            background: linear-gradient(45deg, #ffd93d, #ffb73d);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(255, 183, 61, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        body {
+            padding-top: 80px;
+        }
+
+        @media (max-width: 768px) {
+            .header-nav {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                padding: 10px 15px;
+            }
+
+            .nav-buttons {
+                gap: 8px;
+            }
+
+            .nav-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .credits-badge {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            body {
+                padding-top: 70px;
+            }
+        }
+    </style>
+
+    <div class="header-nav">
+        <div class="nav-buttons">
+            <div class="credits-badge">
+                💎 <?= number_format($user['credits_remaining'], ($user['credits_remaining'] == floor($user['credits_remaining'])) ? 0 : 1) ?> Credits
+            </div>
+            <a href="/generate.php" class="nav-btn">Generate</a>
+            <a href="/pricing.php" class="nav-btn secondary">Get Credits</a>
+            <a href="/" class="nav-btn tertiary">Home</a>
+            <a href="/auth/logout.php" class="nav-btn tertiary">Logout</a>
+        </div>
+    </div>
 
     <div class="container">
         <div class="content" style="padding-top: 30px;">
@@ -593,37 +784,41 @@ foreach ($userPhotos as &$photo) {
                                 <p>No generations yet. <a href="/generate.php" style="color: #667eea; text-decoration: none;">Create your first one!</a></p>
                             </div>
                         <?php else: ?>
-                            <?php foreach ($generations as $gen): ?>
+                            <?php foreach ($generations as $index => $gen): ?>
                                 <div class="generation-item">
+                                    <?php if ($gen['status'] === 'completed' && $gen['result_url']): ?>
+                                        <a href="<?= !empty($gen['share_url']) ? htmlspecialchars($gen['share_url']) : htmlspecialchars($gen['result_url']) ?>"
+                                           class="result-thumbnail"
+                                           <?= !empty($gen['share_url']) ? '' : 'target="_blank"' ?>
+                                           title="View result">
+                                            <img src="<?= htmlspecialchars($gen['result_url']) ?>" alt="Generated result" />
+                                        </a>
+                                    <?php else: ?>
+                                        <div class="result-thumbnail" style="background: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #adb5bd; font-size: 24px;">
+                                            👗
+                                        </div>
+                                    <?php endif; ?>
+
                                     <div class="generation-info">
-                                        <h4>Generation #<?= $gen['id'] ?></h4>
-                                        <div class="date"><?= date('M j, Y g:i A', strtotime($gen['created_at'])) ?></div>
+                                        <h4>Outfit #<?= $index + 1 ?></h4>
+                                        <div class="date"><?= date('M j, g:i A', strtotime($gen['created_at'])) ?></div>
                                         <div>
                                             <span class="status-badge status-<?= $gen['status'] ?>">
                                                 <?= ucfirst($gen['status']) ?>
                                             </span>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <?php if ($gen['status'] === 'completed' && !empty($gen['share_url'])): ?>
-                                            <a href="<?= htmlspecialchars($gen['share_url']) ?>"
-                                               class="result-thumbnail"
-                                               target="_blank"
-                                               title="View result">
-                                                <img src="<?= htmlspecialchars($gen['result_url']) ?>" alt="Generated result" />
-                                            </a>
-                                        <?php elseif ($gen['status'] === 'completed' && $gen['result_url']): ?>
-                                            <a href="<?= htmlspecialchars($gen['result_url']) ?>"
-                                               class="result-thumbnail"
-                                               target="_blank"
-                                               title="View image">
-                                                <img src="<?= htmlspecialchars($gen['result_url']) ?>" alt="Generated result" />
-                                            </a>
-                                        <?php endif; ?>
                                         <?php if ($gen['status'] === 'failed'): ?>
-                                            <div style="color: #e74c3c; font-size: 0.9em; max-width: 200px;">
+                                            <div style="color: #e74c3c; font-size: 0.85em; margin-top: 5px;">
                                                 <?= htmlspecialchars($gen['error_message'] ?? 'Unknown error') ?>
                                             </div>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="generation-actions">
+                                        <?php if ($gen['status'] === 'completed' && !empty($gen['share_url'])): ?>
+                                            <button class="copy-btn" onclick="copyShareLink('<?= htmlspecialchars($gen['share_url']) ?>', this)" title="Copy share link">
+                                                📋
+                                            </button>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -807,6 +1002,38 @@ foreach ($userPhotos as &$photo) {
                 // Clear the input
                 input.value = '';
             }
+        }
+
+        function copyShareLink(shareUrl, button) {
+            const fullUrl = window.location.origin + shareUrl;
+
+            navigator.clipboard.writeText(fullUrl).then(function() {
+                const originalContent = button.innerHTML;
+                button.innerHTML = '✅';
+                button.classList.add('copied');
+
+                setTimeout(() => {
+                    button.innerHTML = originalContent;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(function() {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = fullUrl;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                const originalContent = button.innerHTML;
+                button.innerHTML = '✅';
+                button.classList.add('copied');
+
+                setTimeout(() => {
+                    button.innerHTML = originalContent;
+                    button.classList.remove('copied');
+                }, 2000);
+            });
         }
 
         function openPhotoManager() {

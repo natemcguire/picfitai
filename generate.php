@@ -37,25 +37,8 @@ foreach ($userPhotos as &$photo) {
 $outfitOptions = [];
 $outfitsDir = __DIR__ . '/images/outfits/';
 
-// Debug info (can be enabled temporarily to diagnose issues)
-$debugOutfits = true; // Set to true to enable debugging
-if ($debugOutfits) {
-    error_log("Outfits directory: " . $outfitsDir);
-    error_log("Directory exists: " . (is_dir($outfitsDir) ? 'Yes' : 'No'));
-    if (is_dir($outfitsDir)) {
-        error_log("Directory readable: " . (is_readable($outfitsDir) ? 'Yes' : 'No'));
-        $allFiles = scandir($outfitsDir);
-        error_log("All files in directory: " . json_encode($allFiles));
-    }
-}
-
 if (is_dir($outfitsDir) && is_readable($outfitsDir)) {
     $outfitFiles = glob($outfitsDir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE);
-
-    if ($debugOutfits) {
-        error_log("Found outfit files: " . json_encode($outfitFiles));
-    }
-
     foreach ($outfitFiles as $filePath) {
         if (is_readable($filePath)) {
             $filename = basename($filePath);
@@ -69,16 +52,13 @@ if (is_dir($outfitsDir) && is_readable($outfitsDir)) {
     }
 }
 
-
 $error = '';
 $success = '';
-$result = null;
 
-// Handle POST request separately from HTML output
+// Handle POST request
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Set content type to JSON for AJAX handling
     if (isset($_POST['ajax']) && $_POST['ajax'] === '1') {
-        // Clean any previous output and set JSON headers
         if (ob_get_level()) {
             ob_clean();
         }
@@ -99,29 +79,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Insufficient credits. Please purchase more credits to continue.');
         }
 
-        // Handle both stored photos and uploaded photos
-                $standingPhotos = [];
-        $useStoredPhoto = isset($_POST['use_stored_photo']) && $_POST['use_stored_photo'] === '1';
+        // Handle person photo selection
+        $standingPhotos = [];
+        $personSource = $_POST['person_source'] ?? '';
 
-        // Debug logging to see what's being submitted
-        Logger::info('Form submission debug', [
-            'use_stored_photo' => $_POST['use_stored_photo'] ?? 'not set',
-            'stored_photo_id' => $_POST['stored_photo_id'] ?? 'not set',
-            'use_default_outfit' => $_POST['use_default_outfit'] ?? 'not set',
-            'default_outfit_path' => $_POST['default_outfit_path'] ?? 'not set',
-            'has_standing_photos_files' => isset($_FILES['standing_photos']) ? 'yes' : 'no',
-            'standing_photos_count' => isset($_FILES['standing_photos']['name']) ? count(array_filter($_FILES['standing_photos']['name'])) : 0,
-            'has_outfit_photo_file' => isset($_FILES['outfit_photo']) ? 'yes' : 'no',
-            'outfit_photo_name' => $_FILES['outfit_photo']['name'] ?? 'not set',
-            'useStoredPhoto_boolean' => $useStoredPhoto ? 'true' : 'false'
-        ]);
-
-        if ($useStoredPhoto) {
+        if ($personSource === 'stored' && !empty($_POST['stored_photo_id'])) {
             // Use stored photo
-            if (empty($_POST['stored_photo_id'])) {
-                throw new Exception('Please select a stored photo or upload a new one');
-            }
-
             $storedPhotoId = (int) $_POST['stored_photo_id'];
             $storedPhoto = UserPhotoService::getPhotoById($storedPhotoId, $user['id']);
 
@@ -129,115 +92,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Selected photo not found');
             }
 
-            // Convert stored photo to the format expected by AIService
             $standingPhotos[] = [
                 'tmp_name' => $storedPhoto['file_path'],
                 'type' => $storedPhoto['mime_type'],
                 'size' => $storedPhoto['file_size'],
                 'name' => $storedPhoto['original_name']
             ];
-        } else {
-            // Use uploaded photos - only validate standing photos for now
-            $validationErrors = AIService::validateUploadedFiles($_FILES['standing_photos'] ?? [], []);
-            
-            if (!empty($validationErrors)) {
-                throw new Exception(implode(', ', $validationErrors));
+
+        } elseif ($personSource === 'upload' && isset($_FILES['person_upload'])) {
+            // Use uploaded photo
+            if ($_FILES['person_upload']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('Failed to upload person photo');
             }
 
-            // Check if user wants to save the photo
-            $savePhoto = isset($_POST['save_photo']) && $_POST['save_photo'] === '1';
+            $standingPhotos[] = $_FILES['person_upload'];
 
-            if (isset($_FILES['standing_photos']['tmp_name']) && is_array($_FILES['standing_photos']['tmp_name'])) {
-                    for ($i = 0; $i < count($_FILES['standing_photos']['tmp_name']); $i++) {
-                        if (!empty($_FILES['standing_photos']['tmp_name'][$i])) {
-                            $standingPhotos[] = [
-                                'tmp_name' => $_FILES['standing_photos']['tmp_name'][$i],
-                                'type' => $_FILES['standing_photos']['type'][$i],
-                            'size' => $_FILES['standing_photos']['size'][$i],
-                            'name' => $_FILES['standing_photos']['name'][$i]
-                        ];
-
-                        // Save the first photo to user_photos if requested
-                        if ($savePhoto && $i === 0) {
-                            try {
-                                $uploadedFile = [
-                                    'tmp_name' => $_FILES['standing_photos']['tmp_name'][$i],
-                                    'type' => $_FILES['standing_photos']['type'][$i],
-                                    'size' => $_FILES['standing_photos']['size'][$i],
-                                    'name' => $_FILES['standing_photos']['name'][$i],
-                                    'error' => $_FILES['standing_photos']['error'][$i]
-                                ];
-
-                                // Set as primary if user has no photos yet
-                                $setPrimary = UserPhotoService::getUserPhotoCount($user['id']) === 0;
-                                $photoResult = UserPhotoService::uploadUserPhoto($user['id'], $uploadedFile, $setPrimary);
-
-                                // Update the standing photo path to use the saved location for background processing
-                                $savedPhotoPath = UserPhotoService::getPhotoPath($photoResult['filename']);
-                                $standingPhotos[$i]['tmp_name'] = $savedPhotoPath;
-
-                                Logger::info('User photo saved to My Photos and path updated for processing', [
-                                    'user_id' => $user['id'],
-                                    'filename' => $photoResult['filename'],
-                                    'original_path' => $_FILES['standing_photos']['tmp_name'][$i],
-                                    'new_path' => $savedPhotoPath
-                                ]);
-                            } catch (Exception $e) {
-                                Logger::error('Failed to save user photo', [
-                                    'user_id' => $user['id'],
-                                    'error' => $e->getMessage()
-                                ]);
-                            }
-                        }
-                    }
+            // Save if requested
+            if (isset($_POST['save_photo']) && $_POST['save_photo'] === '1') {
+                try {
+                    $setPrimary = UserPhotoService::getUserPhotoCount($user['id']) === 0;
+                    $photoResult = UserPhotoService::uploadUserPhoto($user['id'], $_FILES['person_upload'], $setPrimary);
+                    // Update path for processing
+                    $standingPhotos[0]['tmp_name'] = UserPhotoService::getPhotoPath($photoResult['filename']);
+                } catch (Exception $e) {
+                    Logger::error('Failed to save user photo', ['error' => $e->getMessage()]);
                 }
             }
+        } else {
+            throw new Exception('Please select or upload a photo of yourself');
         }
 
-        if (empty($standingPhotos)) {
-            throw new Exception('Please provide a photo of yourself');
-        }
-
-        // Handle outfit photo (default or uploaded)
-        $useDefaultOutfit = isset($_POST['use_default_outfit']) && $_POST['use_default_outfit'] === '1';
+        // Handle outfit selection
         $outfitPhoto = [];
+        $outfitSource = $_POST['outfit_source'] ?? '';
 
-        if ($useDefaultOutfit) {
+        if ($outfitSource === 'default' && !empty($_POST['default_outfit_path'])) {
             // Use default outfit
-            $defaultOutfitPath = $_POST['default_outfit_path'] ?? '';
-            if (empty($defaultOutfitPath) || !file_exists($defaultOutfitPath)) {
-                throw new Exception('Selected default outfit not found');
+            $defaultOutfitPath = $_POST['default_outfit_path'];
+            if (!file_exists($defaultOutfitPath)) {
+                throw new Exception('Selected outfit not found');
             }
 
-            // Convert default outfit to the format expected by AIService
             $outfitPhoto = [
                 'tmp_name' => $defaultOutfitPath,
                 'type' => mime_content_type($defaultOutfitPath),
                 'size' => filesize($defaultOutfitPath),
                 'name' => basename($defaultOutfitPath)
             ];
-                    } else {
-            // Use uploaded outfit - validate it
-            if (empty($_FILES['outfit_photo']['name'])) {
-                throw new Exception('Please upload an outfit photo or select a default outfit');
+
+        } elseif ($outfitSource === 'upload' && isset($_FILES['outfit_upload'])) {
+            // Use uploaded outfit
+            if ($_FILES['outfit_upload']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('Failed to upload outfit photo');
             }
-            
-            $outfitValidationErrors = AIService::validateUploadedFiles([], $_FILES['outfit_photo'] ?? []);
-            if (!empty($outfitValidationErrors)) {
-                throw new Exception(implode(', ', $outfitValidationErrors));
-            }
-            
-            $outfitPhoto = $_FILES['outfit_photo'];
+
+            $outfitPhoto = $_FILES['outfit_upload'];
+        } else {
+            throw new Exception('Please select or upload an outfit');
         }
 
-        // Always use background processing now
+        // Queue for background processing
         $jobId = BackgroundJobService::queueGeneration($user['id'], $standingPhotos, $outfitPhoto, $isPublic);
 
         $costText = $isPublic ? '0.5 credits' : '1 credit';
         $privacyText = $isPublic ? 'public' : 'private';
         $success = "Generation started! Processing your {$privacyText} photo ({$costText}).";
 
-        // For AJAX requests, return JSON response with job ID
+        // For AJAX requests, return JSON response
         if (isset($_POST['ajax']) && $_POST['ajax'] === '1') {
             echo json_encode([
                 'success' => true,
@@ -250,11 +171,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        } catch (Exception $e) {
+    } catch (Exception $e) {
         $error = $e->getMessage();
         Logger::error('Generation error', ['error' => $error, 'user_id' => $user['id']]);
 
-        // For AJAX requests, return JSON error response
         if (isset($_POST['ajax']) && $_POST['ajax'] === '1') {
             echo json_encode([
                 'success' => false,
@@ -317,247 +237,107 @@ $csrfToken = Session::generateCSRFToken();
             font-weight: bold;
         }
 
-        /* Navigation Buttons */
-        .nav-btn {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 25px;
-            padding: 0.5rem 1.2rem;
-            font-size: 0.9rem;
-            font-weight: 500;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .nav-btn:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        .nav-btn.primary {
-            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
-            border: 1px solid rgba(255, 107, 107, 0.3);
-            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
-        }
-
-        .nav-btn.primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 25px rgba(255, 107, 107, 0.4);
-        }
-
         .form-container {
             padding: 40px 20px;
         }
 
-        .upload-section {
-            margin-bottom: 30px;
+        /* New Selection System Styles */
+        .selection-section {
+            margin-bottom: 40px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
         }
 
-        .upload-section h3 {
+        .selection-section h3 {
             color: #2c3e50;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-        }
-
-        .file-upload {
-            position: relative;
-            display: block;
-            width: 100%;
-            min-height: 150px;
-            border: 3px dashed #bdc3c7;
-            border-radius: 10px;
-            background: #f8f9fa;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            padding: 30px 20px;
-        }
-
-        .file-upload:hover {
-            border-color: #3498db;
-            background: #e3f2fd;
-        }
-
-        .file-upload.drag-over {
-            border-color: #2ecc71;
-            background: #e8f5e8;
-        }
-
-        .file-upload input[type="file"] {
-            position: absolute;
-            opacity: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-        }
-
-        .upload-icon {
-            font-size: 3em;
-            margin-bottom: 10px;
-            color: #95a5a6;
-        }
-
-        .upload-text {
-            color: #7f8c8d;
-            font-size: 1.1em;
-            margin-bottom: 5px;
-        }
-
-        .upload-hint {
-            color: #95a5a6;
-            font-size: 0.9em;
-        }
-
-        .file-preview {
-            margin-top: 15px;
-            display: none;
-        }
-
-        .file-preview img {
-            max-width: 100px;
-            max-height: 100px;
-            border-radius: 8px;
-            margin: 5px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        .generate-btn {
-            width: 100%;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            padding: 18px 30px;
-            font-size: 1.2em;
-            font-weight: bold;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 20px;
-        }
-
-        .generate-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .generate-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .alert {
-            padding: 15px;
-            border-radius: 8px;
             margin-bottom: 20px;
-            font-weight: 500;
-        }
-
-        .alert-error {
-            background: #fee;
-            color: #c53030;
-            border: 1px solid #fed7d7;
-        }
-
-        .alert-success {
-            background: #f0fff4;
-            color: #22543d;
-            border: 1px solid #c6f6d5;
-        }
-
-        .result-container {
-            text-align: center;
-            margin-top: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-
-        .result-image {
-            max-width: 100%;
-            border-radius: 10px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .background-status {
-            background: #e3f2fd;
-            border: 1px solid #2196f3;
-            border-radius: 8px;
-            padding: 10px 15px;
-            margin-bottom: 20px;
-            color: #1976d2;
-            font-size: 0.9em;
+            font-size: 1.3em;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
 
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #4caf50;
-            animation: pulse 2s infinite;
+        .selection-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            background: white;
+            padding: 5px;
+            border-radius: 10px;
         }
 
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        .tab-button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            color: #6c757d;
+            font-size: 1em;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
-        .photo-gallery, .outfit-gallery {
-            margin-top: 20px;
+        .tab-button.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
         }
 
-        .photo-gallery h4, .outfit-gallery h4 {
-            color: #2c3e50;
-            margin-bottom: 15px;
-            font-size: 1.1em;
+        .tab-content {
+            display: none;
         }
 
-        .gallery-grid {
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Gallery Grid */
+        .selection-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             gap: 15px;
             margin-bottom: 15px;
         }
 
-        .gallery-item {
+        .selection-item {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .selection-item input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .selection-item label {
+            display: block;
             position: relative;
             border-radius: 10px;
             overflow: hidden;
-            cursor: pointer;
-            transition: all 0.3s ease;
             border: 3px solid transparent;
+            transition: all 0.3s ease;
             background: white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-            user-select: none;
+            cursor: pointer;
         }
 
-        .gallery-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        }
-
-        .gallery-item.selected {
+        .selection-item input[type="radio"]:checked + label {
             border-color: #667eea;
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
         }
 
-        .gallery-item.selected::after {
+        .selection-item input[type="radio"]:checked + label::after {
             content: '✓';
             position: absolute;
             top: 8px;
@@ -575,29 +355,14 @@ $csrfToken = Session::generateCSRFToken();
             z-index: 10;
         }
 
-        .gallery-item.primary {
-            border-color: #27ae60;
-        }
-
-        .gallery-item img {
+        .selection-item img {
             width: 100%;
             height: 120px;
             object-fit: cover;
+            display: block;
         }
 
-        .primary-badge {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: #27ae60;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-size: 0.7em;
-            font-weight: bold;
-        }
-
-        .photo-name, .outfit-name {
+        .selection-name {
             position: absolute;
             bottom: 0;
             left: 0;
@@ -611,86 +376,69 @@ $csrfToken = Session::generateCSRFToken();
             overflow: hidden;
         }
 
-        .gallery-hint {
-            color: #7f8c8d;
-            font-size: 0.9em;
-            text-align: center;
-        }
-
-        .gallery-hint a {
-            color: #667eea;
-            text-decoration: none;
-        }
-
-        .gallery-hint a:hover {
-            text-decoration: underline;
-        }
-
-        .gallery-placeholder {
-            text-align: center;
+        /* Upload Area */
+        .upload-area {
+            border: 3px dashed #dee2e6;
+            border-radius: 10px;
             padding: 40px 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            border: 2px dashed #dee2e6;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
         }
 
-        .placeholder-icon {
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .upload-area.has-file {
+            border-color: #27ae60;
+            background: #f0fff4;
+        }
+
+        .upload-area input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            cursor: pointer;
+        }
+
+        .upload-icon {
             font-size: 3em;
-            color: #adb5bd;
             margin-bottom: 10px;
+            color: #adb5bd;
         }
 
-        .gallery-placeholder p {
+        .upload-text {
+            color: #495057;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .upload-hint {
             color: #6c757d;
-            margin: 0;
-        }
-
-        .save-photo-option {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #ecf0f1;
-        }
-
-        .save-photo-option label {
             font-size: 0.9em;
-            color: #7f8c8d;
         }
 
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
+        .upload-preview {
+            margin-top: 15px;
+            display: none;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .privacy-section {
-            margin-bottom: 25px;
-            padding: 20px;
-            background: #f8f9fa;
+        .upload-preview img {
+            max-width: 150px;
+            max-height: 150px;
             border-radius: 10px;
-            border: 2px solid #e9ecef;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
-        .privacy-section h3 {
-            color: #2c3e50;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-        }
-
-        .privacy-options {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
+        /* Privacy Options */
         .privacy-option {
             display: flex;
             align-items: flex-start;
@@ -700,6 +448,7 @@ $csrfToken = Session::generateCSRFToken();
             cursor: pointer;
             transition: all 0.3s ease;
             background: white;
+            margin-bottom: 10px;
         }
 
         .privacy-option:hover {
@@ -711,10 +460,6 @@ $csrfToken = Session::generateCSRFToken();
             margin-right: 15px;
             margin-top: 2px;
             transform: scale(1.2);
-        }
-
-        .privacy-option input[type="radio"]:checked + .option-content {
-            color: #2c3e50;
         }
 
         .privacy-option:has(input[type="radio"]:checked) {
@@ -739,241 +484,121 @@ $csrfToken = Session::generateCSRFToken();
             line-height: 1.4;
         }
 
-        .previous-generations-section {
-            margin-bottom: 25px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            border: 2px solid #e9ecef;
-        }
-
-        .previous-generations-section h3 {
-            color: #2c3e50;
-            margin-bottom: 10px;
+        /* Generate Button */
+        .generate-btn {
+            width: 100%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 18px 30px;
             font-size: 1.2em;
-        }
-
-        .generation-thumbnails {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-
-        .generation-thumbnail {
-            position: relative;
-            aspect-ratio: 1;
-            border-radius: 8px;
-            overflow: hidden;
+            font-weight: bold;
+            border-radius: 50px;
             cursor: pointer;
             transition: all 0.3s ease;
-            border: 2px solid #dee2e6;
+            margin-top: 30px;
         }
 
-        .generation-thumbnail:hover {
-            transform: scale(1.05);
-            border-color: #667eea;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        .generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
 
-        .generation-thumbnail img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
-        .thumbnail-overlay {
-            position: absolute;
+        /* Status Messages */
+        .status-message {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-message.error {
+            background: #fee;
+            color: #c53030;
+            border: 1px solid #fed7d7;
+        }
+
+        .status-message.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #c6f6d5;
+        }
+
+        .status-message.info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #90caf9;
+        }
+
+        /* Loading State */
+        .loading-overlay {
+            display: none;
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.6) 100%);
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-overlay.active {
             display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 6px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
         }
 
-        .generation-thumbnail:hover .thumbnail-overlay {
-            opacity: 1;
+        .loading-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
         }
 
-        .thumbnail-date {
-            font-size: 0.7em;
-            color: white;
-            font-weight: bold;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
         }
 
-        .thumbnail-public,
-        .thumbnail-private {
-            font-size: 0.8em;
-            align-self: flex-end;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
+        /* Responsive Design */
         @media (max-width: 768px) {
-            .container {
-                max-width: 600px;
-            }
-
-            .gallery-grid {
-                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-                gap: 10px;
-            }
-
-            .privacy-options {
-                gap: 10px;
-            }
-
-            .privacy-option {
-                padding: 12px;
-            }
-        }
-
-        @media (max-width: 600px) {
-            .generation-thumbnails {
-                grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-                gap: 8px;
-            }
-
             .container {
                 margin: 0;
                 border-radius: 0;
                 min-height: 100vh;
             }
 
-            .header {
-                padding: 20px 15px;
+            .selection-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 10px;
             }
 
-            .header h1 {
-                font-size: 1.5em;
-            }
-
-            .form-container {
-                padding: 20px 15px;
-            }
-
-            .file-upload {
-                min-height: 120px;
-                padding: 20px 15px;
-            }
-
-            .upload-icon {
-                font-size: 2em;
-            }
-
-            .gallery-grid {
-                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-                gap: 12px;
-            }
-
-            .gallery-item {
-                min-height: 120px;
-                min-width: 90px;
-            }
-
-            .gallery-item img {
-                height: 100px;
-            }
-
-            .gallery-item:active {
-                transform: scale(0.95);
-            }
-
-            .privacy-option {
-                padding: 10px;
+            .selection-tabs {
                 flex-direction: column;
-                align-items: flex-start;
             }
 
-            .privacy-option input[type="radio"] {
-                margin-right: 0;
-                margin-bottom: 8px;
-                margin-top: 0;
+            .tab-button {
+                width: 100%;
             }
-        }
-
-        /* Sweet Alert Style */
-        .sweet-alert {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .sweet-alert-content {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: scale(0.8) translateY(-20px);
-                opacity: 0;
-            }
-            to {
-                transform: scale(1) translateY(0);
-                opacity: 1;
-            }
-        }
-
-        .sweet-alert-icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-        }
-
-        .sweet-alert-title {
-            color: #ff6b6b;
-            font-size: 1.3em;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .sweet-alert-message {
-            color: #666;
-            font-size: 1em;
-            margin-bottom: 25px;
-            line-height: 1.4;
-        }
-
-        .sweet-alert-button {
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            padding: 12px 30px;
-            font-size: 1em;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .sweet-alert-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
     </style>
 </head>
@@ -981,146 +606,142 @@ $csrfToken = Session::generateCSRFToken();
     <div class="container">
         <div class="header">
             <h1>AI Virtual Try-On</h1>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <a href="/pricing.php" class="nav-btn">💳 Pricing</a>
-                <a href="/dashboard.php" class="nav-btn">📊 Dashboard</a>
-                <a href="/auth/logout.php" class="nav-btn">Logout</a>
-                <div class="credits">💎 <?= number_format($credits, ($credits == floor($credits)) ? 0 : 1) ?> Credits</div>
+            <div style="margin-top: 15px;">
+                <span class="credits">💎 <?= number_format($credits, ($credits == floor($credits)) ? 0 : 1) ?> Credits</span>
             </div>
-                </div>
+        </div>
 
         <div class="form-container">
-            <?php if ($error): ?>
-                <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
-            <?php endif; ?>
-
-            <?php if ($success): ?>
-                <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
-            <?php endif; ?>
-
-            <?php if ($result && isset($result['result_url'])): ?>
-                <div class="result-container">
-                    <h3>Your AI-Generated Try-On Result!</h3>
-                    <img src="<?= htmlspecialchars($result['result_url']) ?>" alt="AI Generated Try-On" class="result-image">
-                    <p><small>Generated in <?= $result['processing_time'] ?? 0 ?> seconds</small></p>
-                </div>
-            <?php endif; ?>
-
             <form id="tryOnForm" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
-                
-                <div class="upload-section">
-                    <h3>📸 Your Photo</h3>
+                <input type="hidden" name="ajax" value="1">
 
-                    <!-- Photo Upload Area -->
-                    <label class="file-upload" id="standingUpload">
-                        <input type="file" name="standing_photos[]" accept="image/*" multiple>
-                        <div class="upload-icon">📷</div>
-                        <div class="upload-text">Tap to upload your photo</div>
-                        <div class="upload-hint">JPEG, PNG, or WebP (max 10MB each)</div>
-                        <div class="file-preview" id="standingPreview"></div>
-                    </label>
+                <!-- Person Photo Selection -->
+                <div class="selection-section">
+                    <h3>📸 Step 1: Select Your Photo</h3>
 
-                    <!-- Save Photo Option -->
-                    <div class="save-photo-option">
+                    <div class="selection-tabs">
+                        <button type="button" class="tab-button active" data-tab="person-stored">My Photos</button>
+                        <button type="button" class="tab-button" data-tab="person-upload">Upload New</button>
+                    </div>
+
+                    <!-- Stored Photos Tab -->
+                    <div class="tab-content active" id="person-stored">
+                        <?php if (!empty($userPhotos)): ?>
+                            <div class="selection-grid">
+                                <?php foreach ($userPhotos as $photo): ?>
+                                    <div class="selection-item">
+                                        <input type="radio"
+                                               name="person_source"
+                                               value="stored"
+                                               id="photo_<?= $photo['id'] ?>"
+                                               data-photo-id="<?= $photo['id'] ?>">
+                                        <label for="photo_<?= $photo['id'] ?>">
+                                            <img src="<?= htmlspecialchars($photo['url']) ?>" alt="Your photo">
+                                            <div class="selection-name"><?= htmlspecialchars($photo['original_name']) ?></div>
+                                        </label>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <input type="hidden" name="stored_photo_id" id="stored_photo_id" value="">
+                        <?php else: ?>
+                            <div style="text-align: center; padding: 40px; background: #f8f9fa; border-radius: 10px;">
+                                <div style="font-size: 3em; color: #adb5bd; margin-bottom: 10px;">📷</div>
+                                <p style="color: #6c757d;">No saved photos yet. Upload one to get started!</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Upload Tab -->
+                    <div class="tab-content" id="person-upload">
+                        <div class="upload-area" id="personUploadArea">
+                            <input type="file" name="person_upload" accept="image/*" id="personFileInput">
+                            <div class="upload-icon">📤</div>
+                            <div class="upload-text">Click or drag to upload</div>
+                            <div class="upload-hint">JPEG, PNG, or WebP (max 10MB)</div>
+                            <div class="upload-preview" id="personPreview"></div>
+                        </div>
+
                         <label style="display: flex; align-items: center; gap: 8px; margin-top: 15px;">
                             <input type="checkbox" name="save_photo" value="1" checked>
                             <span>Save this photo for future use</span>
                         </label>
                     </div>
-                    
-                    <!-- Photo Gallery -->
-                    <div class="photo-gallery">
-                        <h4>Your Saved Photos</h4>
-                        <?php if (!empty($userPhotos)): ?>
-                            <div class="gallery-grid">
-                                <?php foreach ($userPhotos as $photo): ?>
-                                    <div class="gallery-item <?= $photo['is_primary'] ? 'primary' : '' ?>" data-photo-id="<?= $photo['id'] ?>" data-photo-url="<?= htmlspecialchars($photo['url']) ?>">
-                                        <img src="<?= htmlspecialchars($photo['url']) ?>" alt="Your photo" loading="lazy">
-                                        <?php if ($photo['is_primary']): ?>
-                                            <div class="primary-badge">Primary</div>
-                                        <?php endif; ?>
-                                        <div class="photo-name"><?= htmlspecialchars($photo['original_name']) ?></div>
+                </div>
+
+                <!-- Outfit Selection -->
+                <div class="selection-section">
+                    <h3>👕 Step 2: Choose Your Outfit</h3>
+
+                    <div class="selection-tabs">
+                        <button type="button" class="tab-button active" data-tab="outfit-default">Default Outfits</button>
+                        <button type="button" class="tab-button" data-tab="outfit-upload">Upload Outfit</button>
+                    </div>
+
+                    <!-- Default Outfits Tab -->
+                    <div class="tab-content active" id="outfit-default">
+                        <?php if (!empty($outfitOptions)): ?>
+                            <div class="selection-grid">
+                                <?php foreach ($outfitOptions as $index => $outfit): ?>
+                                    <div class="selection-item">
+                                        <input type="radio"
+                                               name="outfit_source"
+                                               value="default"
+                                               id="outfit_<?= $index ?>"
+                                               data-outfit-path="<?= htmlspecialchars($outfit['path']) ?>">
+                                        <label for="outfit_<?= $index ?>">
+                                            <img src="<?= htmlspecialchars($outfit['url']) ?>" alt="<?= htmlspecialchars($outfit['name']) ?>">
+                                            <div class="selection-name"><?= htmlspecialchars($outfit['name']) ?></div>
+                                        </label>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-                            <p class="gallery-hint">Tap a photo above to use it, or <a href="/dashboard.php">manage your photos</a></p>
+                            <input type="hidden" name="default_outfit_path" id="default_outfit_path" value="">
                         <?php else: ?>
-                            <div class="gallery-placeholder">
-                                <div class="placeholder-icon">📷</div>
-                                <p>No saved photos yet. Upload a photo above to get started!</p>
+                            <div style="text-align: center; padding: 40px; background: #f8f9fa; border-radius: 10px;">
+                                <p style="color: #6c757d;">No default outfits available. Please upload your own.</p>
                             </div>
                         <?php endif; ?>
+                    </div>
+
+                    <!-- Upload Outfit Tab -->
+                    <div class="tab-content" id="outfit-upload">
+                        <div class="upload-area" id="outfitUploadArea">
+                            <input type="file" name="outfit_upload" accept="image/*" id="outfitFileInput">
+                            <div class="upload-icon">👔</div>
+                            <div class="upload-text">Click or drag to upload outfit</div>
+                            <div class="upload-hint">JPEG, PNG, or WebP (max 10MB)</div>
+                            <div class="upload-preview" id="outfitPreview"></div>
+                        </div>
+                    </div>
                 </div>
 
-                    <!-- Hidden inputs for form handling -->
-                    <input type="hidden" name="use_stored_photo" value="0">
-                    <input type="hidden" name="stored_photo_id" value="">
-                </div>
+                <!-- Privacy Settings -->
+                <div class="selection-section">
+                    <h3>🔒 Step 3: Privacy Settings</h3>
 
-                <div class="upload-section">
-                    <h3>👕 Choose Your Outfit</h3>
-
-                    <!-- Outfit Upload Area -->
-                    <label class="file-upload" id="outfitUpload">
-                        <input type="file" name="outfit_photo" accept="image/*">
-                        <div class="upload-icon">👔</div>
-                        <div class="upload-text">Tap to upload outfit</div>
-                        <div class="upload-hint">JPEG, PNG, or WebP (max 10MB)</div>
-                        <div class="file-preview" id="outfitPreview"></div>
+                    <label class="privacy-option">
+                        <input type="radio" name="make_private" value="0" checked>
+                        <div class="option-content">
+                            <strong>📢 Public (0.5 credits)</strong>
+                            <p>Your photo will be shareable and visible in our gallery.</p>
+                        </div>
                     </label>
 
-                    <!-- Default Outfits Gallery -->
-                    <?php if (!empty($outfitOptions)): ?>
-                        <div class="outfit-gallery">
-                            <h4>Default Outfits</h4>
-                            <div class="gallery-grid">
-                                <?php foreach ($outfitOptions as $index => $outfit): ?>
-                                    <div class="gallery-item outfit-item" data-outfit-path="<?= htmlspecialchars($outfit['path']) ?>" data-outfit-name="<?= htmlspecialchars($outfit['name']) ?>" data-outfit-url="<?= htmlspecialchars($outfit['url']) ?>">
-                                        <img src="<?= htmlspecialchars($outfit['url']) ?>" alt="<?= htmlspecialchars($outfit['name']) ?>" loading="lazy">
-                                        <div class="outfit-name"><?= htmlspecialchars($outfit['name']) ?></div>
-                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                            <p class="gallery-hint">Tap an outfit above to use it, or upload your own above</p>
+                    <label class="privacy-option">
+                        <input type="radio" name="make_private" value="1">
+                        <div class="option-content">
+                            <strong>🔒 Private (1 credit)</strong>
+                            <p>Keep your photo completely private. Only you can see it.</p>
                         </div>
-                    <?php endif; ?>
-                    
-                    <!-- Hidden inputs for form handling -->
-                    <input type="hidden" name="use_default_outfit" value="0">
-                    <input type="hidden" name="default_outfit_path" value="">
-                </div>
-
-                <div class="privacy-section">
-                    <h3>🔒 Privacy Settings</h3>
-                    <div class="privacy-options">
-                        <label class="privacy-option">
-                            <input type="radio" name="make_private" value="0" checked>
-                            <div class="option-content">
-                                <strong>📢 Public (0.5 credits)</strong>
-                                <p>Your photo will be shareable and visible in our gallery. Perfect for showing off your style!</p>
-                    </div>
-                        </label>
-                        <label class="privacy-option">
-                            <input type="radio" name="make_private" value="1">
-                            <div class="option-content">
-                                <strong>🔒 Private (1 credit)</strong>
-                                <p>Keep your photo completely private. Only you can see the result.</p>
-                            </div>
-                        </label>
-                    </div>
+                    </label>
                 </div>
 
                 <button type="submit" class="generate-btn" id="generateBtn" <?= $credits < 0.5 ? 'disabled' : '' ?>>
                     <span id="generateBtnText">
                         <?= $credits < 0.5 ? 'Insufficient Credits' : '✨ Generate AI Try-On (0.5 Credits)' ?>
                     </span>
-                    </button>
-
-                <div class="loading" id="loadingDiv">
-                    <div class="spinner"></div>
-                    <p>AI is working its magic... This may take up to 2 minutes.</p>
-                </div>
+                </button>
             </form>
 
             <?php if ($credits < 1): ?>
@@ -1133,558 +754,336 @@ $csrfToken = Session::generateCSRFToken();
         </div>
     </div>
 
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">Creating Your Try-On</h3>
+            <p style="color: #6c757d;">This may take up to 2 minutes...</p>
+        </div>
+    </div>
+
     <script>
+        // State management - single source of truth
+        const appState = {
+            personSource: null,     // 'stored' or 'upload'
+            personId: null,         // ID for stored photo
+            personFile: null,       // File object for upload
+            outfitSource: null,     // 'default' or 'upload'
+            outfitPath: null,       // Path for default outfit
+            outfitFile: null,       // File object for upload
+            isPrivate: false,
+            creditCost: 0.5
+        };
+
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('tryOnForm');
-        const generateBtn = document.getElementById('generateBtn');
-            const loadingDiv = document.getElementById('loadingDiv');
-
-            // Handle gallery photo selection
-            const galleryItems = document.querySelectorAll('.gallery-item[data-photo-id]');
-            const storedPhotoIdInput = document.querySelector('input[name="stored_photo_id"]');
-            const useStoredPhotoInput = document.querySelector('input[name="use_stored_photo"]');
-            const standingUpload = document.getElementById('standingUpload');
-            const standingPreview = document.getElementById('standingPreview');
-
-            galleryItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    // Remove selection from all gallery items
-                    galleryItems.forEach(i => i.classList.remove('selected'));
-
-                    // Select this item
-                    item.classList.add('selected');
-
-                    // Update form data
-                    if (storedPhotoIdInput) {
-                        storedPhotoIdInput.value = item.dataset.photoId;
-                    }
-                    if (useStoredPhotoInput) {
-                        useStoredPhotoInput.value = '1';
-                    }
-
-                    // Show preview in upload area
-                    const photoUrl = item.dataset.photoUrl;
-                    standingPreview.innerHTML = `<img src="${photoUrl}" style="max-width: 100px; max-height: 100px; border-radius: 8px; margin: 5px;">`;
-                    standingPreview.style.display = 'block';
-
-                    // Clear file input
-                    const fileInput = standingUpload.querySelector('input[type="file"]');
-                    fileInput.value = '';
-
-                    console.log('Selected stored photo:', item.dataset.photoId);
-                });
-            });
-
-            // Handle outfit gallery selection
-            const outfitItems = document.querySelectorAll('.gallery-item[data-outfit-path]');
-            const defaultOutfitPathInput = document.querySelector('input[name="default_outfit_path"]');
-            const useDefaultOutfitInput = document.querySelector('input[name="use_default_outfit"]');
-            const outfitUpload = document.getElementById('outfitUpload');
-            const outfitPreview = document.getElementById('outfitPreview');
-
-            // Simple outfit selection - works on all devices
-            outfitItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    // Remove selection from all outfit items
-                    outfitItems.forEach(i => i.classList.remove('selected'));
-
-                    // Select this item
-                    item.classList.add('selected');
-
-                    // Show preview in upload area
-                    const outfitUrl = item.dataset.outfitUrl;
-                    outfitPreview.innerHTML = `<img src="${outfitUrl}" style="max-width: 100px; max-height: 100px; border-radius: 8px; margin: 5px;">`;
-                    outfitPreview.style.display = 'block';
-
-                    // Clear file input when selecting from gallery
-                    const fileInput = outfitUpload.querySelector('input[type="file"]');
-                    if (fileInput) {
-                        fileInput.value = '';
-                    }
-                });
-            });
-
-            // Handle file upload changes - clear gallery selections
-            const standingFileInput = document.querySelector('input[name="standing_photos[]"]');
-            const outfitFileInput = document.querySelector('input[name="outfit_photo"]');
-
-            standingFileInput.addEventListener('change', () => {
-                // Clear gallery selection when uploading new photo
-                galleryItems.forEach(i => i.classList.remove('selected'));
-                if (useStoredPhotoInput) {
-                    useStoredPhotoInput.value = '0';
-                }
-                if (storedPhotoIdInput) {
-                    storedPhotoIdInput.value = '';
-                }
-            });
-
-            outfitFileInput.addEventListener('change', () => {
-                // Clear gallery selection when uploading new outfit
-                outfitItems.forEach(i => i.classList.remove('selected'));
-                outfitPreview.style.display = 'none';
-            });
-
-            // Handle privacy option changes
-            const privacyOptions = document.querySelectorAll('input[name="make_private"]');
-            const generateBtnText = document.getElementById('generateBtnText');
+            const generateBtn = document.getElementById('generateBtn');
+            const loadingOverlay = document.getElementById('loadingOverlay');
             const userCredits = <?= $credits ?>;
 
-            privacyOptions.forEach(option => {
-                option.addEventListener('change', () => {
-                    const isPrivate = option.value === '1';
-                    const creditCost = isPrivate ? 1 : 0.5;
+            // Tab switching
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const tabGroup = this.dataset.tab.split('-')[0];
+                    const tabName = this.dataset.tab;
 
-                    if (userCredits < creditCost) {
-                        generateBtnText.textContent = 'Insufficient Credits';
+                    // Update active tab button
+                    document.querySelectorAll(`.tab-button[data-tab^="${tabGroup}"]`).forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+
+                    // Update active tab content
+                    document.querySelectorAll(`.tab-content[id^="${tabGroup}"]`).forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(tabName).classList.add('active');
+                });
+            });
+
+            // Person photo selection (stored)
+            document.querySelectorAll('input[name="person_source"][value="stored"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.checked) {
+                        appState.personSource = 'stored';
+                        appState.personId = this.dataset.photoId;
+                        appState.personFile = null;
+                        document.getElementById('stored_photo_id').value = this.dataset.photoId;
+
+                        // Clear upload area
+                        document.getElementById('personFileInput').value = '';
+                        document.getElementById('personPreview').style.display = 'none';
+                        document.getElementById('personUploadArea').classList.remove('has-file');
+                    }
+                });
+            });
+
+            // Person photo upload
+            const personFileInput = document.getElementById('personFileInput');
+            const personUploadArea = document.getElementById('personUploadArea');
+            const personPreview = document.getElementById('personPreview');
+
+            personFileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+
+                    // Update state
+                    appState.personSource = 'upload';
+                    appState.personFile = file;
+                    appState.personId = null;
+
+                    // Clear stored photo selection
+                    document.querySelectorAll('input[name="person_source"][value="stored"]').forEach(radio => {
+                        radio.checked = false;
+                    });
+
+                    // Show preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        personPreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                        personPreview.style.display = 'block';
+                        personUploadArea.classList.add('has-file');
+                    };
+                    reader.readAsDataURL(file);
+
+                    // Auto-switch to upload tab
+                    document.querySelector('[data-tab="person-upload"]').click();
+                }
+            });
+
+            // Outfit selection (default)
+            document.querySelectorAll('input[name="outfit_source"][value="default"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.checked) {
+                        appState.outfitSource = 'default';
+                        appState.outfitPath = this.dataset.outfitPath;
+                        appState.outfitFile = null;
+                        document.getElementById('default_outfit_path').value = this.dataset.outfitPath;
+
+                        // Clear upload area
+                        document.getElementById('outfitFileInput').value = '';
+                        document.getElementById('outfitPreview').style.display = 'none';
+                        document.getElementById('outfitUploadArea').classList.remove('has-file');
+                    }
+                });
+            });
+
+            // Outfit upload
+            const outfitFileInput = document.getElementById('outfitFileInput');
+            const outfitUploadArea = document.getElementById('outfitUploadArea');
+            const outfitPreview = document.getElementById('outfitPreview');
+
+            outfitFileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+
+                    // Update state
+                    appState.outfitSource = 'upload';
+                    appState.outfitFile = file;
+                    appState.outfitPath = null;
+
+                    // Clear default outfit selection
+                    document.querySelectorAll('input[name="outfit_source"][value="default"]').forEach(radio => {
+                        radio.checked = false;
+                    });
+
+                    // Show preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        outfitPreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                        outfitPreview.style.display = 'block';
+                        outfitUploadArea.classList.add('has-file');
+                    };
+                    reader.readAsDataURL(file);
+
+                    // Auto-switch to upload tab
+                    document.querySelector('[data-tab="outfit-upload"]').click();
+                }
+            });
+
+            // Privacy settings
+            document.querySelectorAll('input[name="make_private"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    appState.isPrivate = this.value === '1';
+                    appState.creditCost = appState.isPrivate ? 1 : 0.5;
+
+                    // Update button text
+                    const btnText = document.getElementById('generateBtnText');
+                    if (userCredits < appState.creditCost) {
+                        btnText.textContent = 'Insufficient Credits';
                         generateBtn.disabled = true;
                     } else {
-                        const privacyText = isPrivate ? 'Private' : 'Public';
-                        generateBtnText.textContent = `✨ Generate AI Try-On (${creditCost} ${creditCost === 1 ? 'Credit' : 'Credits'}) - ${privacyText}`;
+                        const privacyText = appState.isPrivate ? 'Private' : 'Public';
+                        btnText.textContent = `✨ Generate AI Try-On (${appState.creditCost} Credits) - ${privacyText}`;
                         generateBtn.disabled = false;
                     }
                 });
             });
 
-            // Handle user photo thumbnail clicks
-            const userPhotoThumbnails = document.querySelectorAll('.user-photo-thumbnail');
-            userPhotoThumbnails.forEach(thumbnail => {
-                thumbnail.addEventListener('click', () => {
-                    const photoId = thumbnail.dataset.photoId;
-
-                    // Switch to stored photos tab
-                    document.querySelector('[data-tab="stored"]').click();
-
-                    // Select this photo in the stored photos grid
-                    setTimeout(() => {
-                        const storedPhoto = document.querySelector(`[data-photo-id="${photoId}"]`);
-                        if (storedPhoto && storedPhoto.classList.contains('stored-photo')) {
-                            storedPhoto.click();
-                        }
-                    }, 100);
-                });
-            });
-
-            // File upload handling
-            const setupFileUpload = (uploadElement, previewElement, multiple = false) => {
-                const input = uploadElement.querySelector('input[type="file"]');
-
-                // Drag and drop
-                uploadElement.addEventListener('dragover', (e) => {
-            e.preventDefault();
-                    uploadElement.classList.add('drag-over');
-        });
-
-                uploadElement.addEventListener('dragleave', () => {
-                    uploadElement.classList.remove('drag-over');
-        });
-
-                uploadElement.addEventListener('drop', (e) => {
-            e.preventDefault();
-                    uploadElement.classList.remove('drag-over');
-
-                    const files = e.dataTransfer.files;
-                    if (files.length > 0) {
-                        input.files = files;
-                        showPreview(files, previewElement, multiple);
-                    }
-                });
-
-                // File input change
-                input.addEventListener('change', (e) => {
-                    showPreview(e.target.files, previewElement, multiple);
-                });
-            };
-
-            // Show file preview
-            const showPreview = (files, previewElement, multiple) => {
-                previewElement.innerHTML = '';
-                previewElement.style.display = 'block';
-
-                const maxFiles = multiple ? Math.min(files.length, 5) : 1;
-
-                for (let i = 0; i < maxFiles; i++) {
-                    const file = files[i];
-                    if (file && file.type.startsWith('image/')) {
-                        const img = document.createElement('img');
-                        img.src = URL.createObjectURL(file);
-                        img.onload = () => URL.revokeObjectURL(img.src);
-                        previewElement.appendChild(img);
-                    }
-                }
-            };
-
-            // Setup uploads
-            setupFileUpload(
-                document.getElementById('standingUpload'),
-                document.getElementById('standingPreview'),
-                true
-            );
-
-            setupFileUpload(
-                document.getElementById('outfitUpload'),
-                document.getElementById('outfitPreview'),
-                false
-            );
-
-            // Form submission with AJAX
-            form.addEventListener('submit', function(e) {
+            // Form submission
+            form.addEventListener('submit', async function(e) {
                 e.preventDefault();
 
-                // Simple validation - works on all devices
-                if (!validateForm()) {
+                // Validate state
+                if (!appState.personSource) {
+                    showMessage('Please select or upload a photo of yourself', 'error');
                     return;
                 }
 
-                generateBtn.style.display = 'none';
-                loadingDiv.style.display = 'block';
-
-                // Create FormData from the form
-                const formData = new FormData(form);
-                formData.append('ajax', '1');
-                formData.append('background', '1'); // Always use background processing
-
-                // Debug what we're sending
-                console.log('FormData contents:');
-                for (let [key, value] of formData.entries()) {
-                    console.log(key, value);
+                if (!appState.outfitSource) {
+                    showMessage('Please select or upload an outfit', 'error');
+                    return;
                 }
 
-                // Show progress updates
-                let progress = 0;
-                const progressInterval = setInterval(() => {
-                    progress += Math.random() * 10;
-                    if (progress > 90) {
-                        clearInterval(progressInterval);
-                        loadingDiv.innerHTML = '<div class="spinner"></div><p>Almost ready... Finalizing your result!</p>';
+                // Ensure radio buttons match state (for form submission)
+                if (appState.personSource === 'upload') {
+                    // Create a hidden radio to mark upload as selected
+                    let uploadRadio = document.querySelector('input[name="person_source"][value="upload"]');
+                    if (!uploadRadio) {
+                        uploadRadio = document.createElement('input');
+                        uploadRadio.type = 'radio';
+                        uploadRadio.name = 'person_source';
+                        uploadRadio.value = 'upload';
+                        uploadRadio.style.display = 'none';
+                        form.appendChild(uploadRadio);
                     }
-                }, 2000);
+                    uploadRadio.checked = true;
+                }
 
-                // Submit via AJAX
-                fetch('/generate.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
+                if (appState.outfitSource === 'upload') {
+                    // Create a hidden radio to mark upload as selected
+                    let uploadRadio = document.querySelector('input[name="outfit_source"][value="upload"]');
+                    if (!uploadRadio) {
+                        uploadRadio = document.createElement('input');
+                        uploadRadio.type = 'radio';
+                        uploadRadio.name = 'outfit_source';
+                        uploadRadio.value = 'upload';
+                        uploadRadio.style.display = 'none';
+                        form.appendChild(uploadRadio);
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    // Handle authentication errors
-                    if (!data.success && data.redirect) {
-                        window.location.href = data.redirect;
-                        return;
-                    }
+                    uploadRadio.checked = true;
+                }
 
-                    clearInterval(progressInterval);
+                // Show loading
+                loadingOverlay.classList.add('active');
+                generateBtn.disabled = true;
+
+                // Submit form
+                const formData = new FormData(form);
+
+                try {
+                    const response = await fetch('/generate.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
 
                     if (data.success) {
-                        if (data.background && data.job_id) {
-                            // Background job started, poll for status
-                            showAlert(data.message, 'success');
-                            showBackgroundStatus('Your request is queued...');
-                            loadingDiv.innerHTML = '<div class="spinner"></div><p>Processing in background. You can continue using the app!</p>';
+                        showMessage(data.message, 'success');
+                        if (data.job_id) {
                             pollJobStatus(data.job_id);
-                        } else {
-                            // Immediate processing completed
-                            loadingDiv.style.display = 'none';
-                            generateBtn.style.display = 'block';
-
-                            // Update credits display
-                            const creditsEl = document.querySelector('.credits');
-                            if (creditsEl && data.credits_remaining !== undefined) {
-                                const credits = data.credits_remaining;
-                                const formattedCredits = (credits == Math.floor(credits)) ? credits.toString() : credits.toFixed(1);
-                                creditsEl.innerHTML = `💎 ${formattedCredits} Credits`;
-                            }
-
-                            // Show success and result
-                            showAlert(data.message, 'success');
-                            if (data.result && data.result.result_url) {
-                                showResult(data.result);
-                            }
                         }
                     } else {
-                        loadingDiv.style.display = 'none';
-                        generateBtn.style.display = 'block';
-                        showAlert(data.error, 'error');
+                        throw new Error(data.error || 'Generation failed');
                     }
-                })
-                .catch(error => {
-                    clearInterval(progressInterval);
-                    loadingDiv.style.display = 'none';
-                    generateBtn.style.display = 'block';
-                    showAlert('Network error. Please try again.', 'error');
-                    console.error('Error:', error);
-                });
+                } catch (error) {
+                    showMessage(error.message, 'error');
+                    loadingOverlay.classList.remove('active');
+                    generateBtn.disabled = false;
+                }
             });
 
-            // Helper function to show alerts
-            function showAlert(message, type) {
-                // Remove any existing alerts
-                const existingAlerts = document.querySelectorAll('.alert');
-                existingAlerts.forEach(alert => alert.remove());
+            // Helper function to show messages
+            function showMessage(message, type) {
+                // Remove existing messages
+                document.querySelectorAll('.status-message').forEach(msg => msg.remove());
 
-                // Create new alert
-                const alertDiv = document.createElement('div');
-                alertDiv.className = `alert alert-${type}`;
-                alertDiv.textContent = message;
-
-                // Insert at the top of form container
-                const formContainer = document.querySelector('.form-container');
-                formContainer.insertBefore(alertDiv, formContainer.firstChild);
-
-                // Auto-remove success alerts after 5 seconds
-                if (type === 'success') {
-            setTimeout(() => {
-                        alertDiv.remove();
-            }, 5000);
-                }
-            }
-
-            // Helper function to show result
-            function showResult(result) {
-                // Remove existing result container
-                const existingResult = document.querySelector('.result-container');
-                if (existingResult) {
-                    existingResult.remove();
-                }
-
-                // Create result container
-                const resultDiv = document.createElement('div');
-                resultDiv.className = 'result-container';
-
-                let shareSection = '';
-                if (result.share_url) {
-                    shareSection = `
-                        <div style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px; border: 1px solid #c3e6c3;">
-                            <h4 style="color: #2d6a2d; margin: 0 0 10px 0;">📢 Your Photo is Public!</h4>
-                            <p style="margin: 0 0 10px 0; color: #2d6a2d; font-size: 0.9em;">Share your amazing try-on result with friends:</p>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="text" value="${window.location.origin}${result.share_url}" readonly
-                                       style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9em;"
-                                       onclick="this.select()">
-                                <button onclick="navigator.clipboard.writeText('${window.location.origin}${result.share_url}'); this.textContent='Copied!'"
-                                        style="padding: 8px 15px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                    Copy Link
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                resultDiv.innerHTML = `
-                    <h3>Your AI-Generated Try-On Result!</h3>
-                    <img src="${result.result_url}" alt="AI Generated Try-On" class="result-image">
-                    <p><small>Generated in ${result.processing_time || 0} seconds</small></p>
-                    ${shareSection}
-                `;
-
-                // Insert after any alerts
-                const alerts = document.querySelectorAll('.alert');
-                const lastAlert = alerts[alerts.length - 1];
-                if (lastAlert) {
-                    lastAlert.insertAdjacentElement('afterend', resultDiv);
-                } else {
-                    const formContainer = document.querySelector('.form-container');
-                    formContainer.insertBefore(resultDiv, form);
-                }
-            }
-
-            // Helper function to show background status
-            function showBackgroundStatus(message) {
-                // Remove existing status
-                const existingStatus = document.querySelector('.background-status');
-                if (existingStatus) {
-                    existingStatus.remove();
-                }
-
-                // Create status container
-                const statusDiv = document.createElement('div');
-                statusDiv.className = 'background-status';
-                statusDiv.innerHTML = `
-                    <div class="status-indicator"></div>
+                // Create new message
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `status-message ${type}`;
+                messageDiv.innerHTML = `
+                    ${type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️'}
                     <span>${message}</span>
                 `;
 
-                // Insert at the top of form container
+                // Insert at top of form container
                 const formContainer = document.querySelector('.form-container');
-                formContainer.insertBefore(statusDiv, formContainer.firstChild);
-            }
+                formContainer.insertBefore(messageDiv, formContainer.firstChild);
 
-            // Helper function to hide background status
-            function hideBackgroundStatus() {
-                const existingStatus = document.querySelector('.background-status');
-                if (existingStatus) {
-                    existingStatus.remove();
+                // Auto-remove success messages
+                if (type === 'success') {
+                    setTimeout(() => messageDiv.remove(), 5000);
                 }
             }
 
-            // Clean form validation - single version for all devices
-            function validateForm() {
-                // 1. Check if user has a photo (stored or uploaded)
-                const useStoredPhoto = document.querySelector('input[name="use_stored_photo"]')?.value === '1';
-                const selectedPhoto = document.querySelector('.gallery-item[data-photo-id].selected');
-                const standingInput = document.querySelector('input[name="standing_photos[]"]');
-
-                if (useStoredPhoto && !selectedPhoto) {
-                    showSweetAlert('Pick a photo of yourself!', 'Please select one from your gallery or upload a new one.');
-                    return false;
-                }
-
-                if (!useStoredPhoto && (!standingInput || !standingInput.files.length)) {
-                    showSweetAlert('Upload a photo of yourself!', 'We need a photo of you to create the try-on.');
-                    return false;
-                }
-
-                // 2. Check if user has an outfit (this is the main check)
-                const selectedOutfit = document.querySelector('.gallery-item[data-outfit-path].selected');
-                const outfitInput = document.querySelector('input[name="outfit_photo"]');
-
-                if (!selectedOutfit && (!outfitInput || !outfitInput.files.length)) {
-                    showSweetAlert('Pick an outfit photo!', 'Choose from our gallery or upload your own outfit.');
-                    return false;
-                }
-
-                // 3. Update form inputs to match selections
-                if (selectedOutfit) {
-                    document.querySelector('input[name="use_default_outfit"]').value = '1';
-                    document.querySelector('input[name="default_outfit_path"]').value = selectedOutfit.dataset.outfitPath;
-                } else {
-                    document.querySelector('input[name="use_default_outfit"]').value = '0';
-                    document.querySelector('input[name="default_outfit_path"]').value = '';
-                }
-
-                // 4. Check file sizes
-                const maxSize = 10 * 1024 * 1024; // 10MB
-                const filesToCheck = [];
-
-                if (!useStoredPhoto && standingInput?.files) {
-                    Array.from(standingInput.files).forEach(file => filesToCheck.push(file));
-                }
-
-                if (!selectedOutfit && outfitInput?.files) {
-                    Array.from(outfitInput.files).forEach(file => filesToCheck.push(file));
-                }
-
-                for (const file of filesToCheck) {
-                    if (file.size > maxSize) {
-                        showSweetAlert('File too large!', `"${file.name}" is too big. Max size is 10MB.`);
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-
-            // Sweet alert style notification
-            function showSweetAlert(title, message) {
-                // Remove any existing alerts
-                const existingAlert = document.querySelector('.sweet-alert');
-                if (existingAlert) {
-                    existingAlert.remove();
-                }
-
-                // Create sweet alert
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'sweet-alert';
-                alertDiv.innerHTML = `
-                    <div class="sweet-alert-content">
-                        <div class="sweet-alert-icon">⚠️</div>
-                        <h3 class="sweet-alert-title">${title}</h3>
-                        <p class="sweet-alert-message">${message}</p>
-                        <button class="sweet-alert-button" onclick="this.parentElement.parentElement.remove()">OK</button>
-                    </div>
-                `;
-
-                document.body.appendChild(alertDiv);
-
-                // Auto-remove after 5 seconds
-                setTimeout(() => {
-                    if (alertDiv.parentNode) {
-                        alertDiv.remove();
-                    }
-                }, 5000);
-            }
-
-            // Poll job status for background jobs
-            function pollJobStatus(jobId) {
+            // Poll job status
+            async function pollJobStatus(jobId) {
+                const maxPolls = 120;
                 let pollCount = 0;
-                const maxPolls = 120; // 10 minutes max (5 second intervals)
 
-                const poll = () => {
+                const poll = async () => {
                     if (pollCount >= maxPolls) {
-                        hideBackgroundStatus();
-                        loadingDiv.style.display = 'none';
-                        generateBtn.style.display = 'block';
-                        showAlert('Processing is taking longer than expected. Please check back later.', 'error');
+                        showMessage('Processing is taking longer than expected', 'error');
+                        loadingOverlay.classList.remove('active');
+                        generateBtn.disabled = false;
                         return;
                     }
 
-                    fetch(`/api/job_status.php?job_id=${jobId}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (!data.success) {
-                                throw new Error(data.error);
+                    try {
+                        const response = await fetch(`/api/job_status.php?job_id=${jobId}`);
+                        const data = await response.json();
+
+                        if (data.job && data.job.status === 'completed') {
+                            // Success! Redirect to share page
+                            if (data.job.result && data.job.result.share_token) {
+                                // Show success message briefly
+                                showMessage('Your AI generation is complete! Redirecting...', 'success');
+
+                                // Redirect to share page after a short delay (with ?new=1 to show congrats message)
+                                setTimeout(() => {
+                                    window.location.href = `/share/${data.job.result.share_token}?new=1`;
+                                }, 1000);
+                            } else if (data.job.result && data.job.result.result_url) {
+                                // For private photos without share token, show result inline
+                                loadingOverlay.classList.remove('active');
+                                generateBtn.disabled = false;
+                                showMessage('Your private AI generation is complete!', 'success');
+                                showPrivateResult(data.job.result);
                             }
-
-                            const job = data.job;
-
-                            switch (job.status) {
-                                case 'queued':
-                                    showBackgroundStatus('Your request is in the queue...');
-                                    setTimeout(poll, 5000);
-                                    break;
-
-                                case 'processing':
-                                    showBackgroundStatus('AI is working on your generation...');
-                                    setTimeout(poll, 5000);
-                                    break;
-
-                                case 'completed':
-                                    hideBackgroundStatus();
-                                    loadingDiv.style.display = 'none';
-                                    generateBtn.style.display = 'block';
-
-                                    // Update credits (deducted on completion)
-                                    const creditsEl = document.querySelector('.credits');
-                                    if (creditsEl) {
-                                        const currentCredits = parseInt(creditsEl.textContent.match(/\d+/)[0]);
-                                        const newCredits = Math.max(0, currentCredits - 1);
-                                        const formattedNewCredits = (newCredits == Math.floor(newCredits)) ? newCredits.toString() : newCredits.toFixed(1);
-                                        creditsEl.innerHTML = `💎 ${formattedNewCredits} Credits`;
-                                    }
-
-                                    showAlert('Your AI generation is complete!', 'success');
-                                    if (job.result && job.result.result_url) {
-                                        showResult(job.result);
-                                    }
-                                    break;
-
-                                case 'failed':
-                                    hideBackgroundStatus();
-                                    loadingDiv.style.display = 'none';
-                                    generateBtn.style.display = 'block';
-                                    showAlert(job.error || 'Generation failed', 'error');
-                                    break;
-
-                                default:
-                                    setTimeout(poll, 5000);
-                            }
-
+                        } else if (data.job && data.job.status === 'failed') {
+                            throw new Error(data.job.error || 'Generation failed');
+                        } else {
                             pollCount++;
-                        })
-                        .catch(error => {
-                            console.error('Polling error:', error);
                             setTimeout(poll, 5000);
-                            pollCount++;
-                        });
+                        }
+                    } catch (error) {
+                        showMessage(error.message, 'error');
+                        loadingOverlay.classList.remove('active');
+                        generateBtn.disabled = false;
+                    }
                 };
 
-                // Start polling after a short delay
                 setTimeout(poll, 2000);
+            }
+
+            // Show private result (when no share token)
+            function showPrivateResult(result) {
+                const resultHtml = `
+                    <div class="selection-section" style="text-align: center;">
+                        <h3>🔒 Your Private AI-Generated Try-On!</h3>
+                        <img src="${result.result_url}" style="max-width: 100%; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                        <p style="margin-top: 20px; color: #6c757d;">This is a private photo only visible to you.</p>
+                        <button onclick="location.reload()" style="margin-top: 15px; padding: 12px 30px; background: linear-gradient(45deg, #667eea, #764ba2); color: white; border: none; border-radius: 25px; font-weight: 600; cursor: pointer;">
+                            Generate Another
+                        </button>
+                    </div>
+                `;
+
+                const formContainer = document.querySelector('.form-container');
+                formContainer.insertAdjacentHTML('afterbegin', resultHtml);
             }
         });
     </script>
