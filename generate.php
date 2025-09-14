@@ -567,6 +567,24 @@ $csrfToken = Session::generateCSRFToken();
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
         }
 
+        .stored-photo.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
         .stored-photo.primary {
             border-color: #27ae60;
         }
@@ -765,6 +783,24 @@ $csrfToken = Session::generateCSRFToken();
             background: linear-gradient(145deg, #fff 0%, #fffafc 100%);
         }
 
+        .default-outfit.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #ff6b9d;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
         .default-outfit img {
             width: 100%;
             height: 140px;
@@ -851,6 +887,44 @@ $csrfToken = Session::generateCSRFToken();
             .container {
                 max-width: 600px;
             }
+
+            .photo-tabs {
+                flex-direction: column;
+            }
+
+            .tab-btn {
+                border-radius: 0;
+                border-bottom: 1px solid #bdc3c7;
+            }
+
+            .tab-btn:first-child {
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+            }
+
+            .tab-btn:last-child {
+                border-bottom-left-radius: 10px;
+                border-bottom-right-radius: 10px;
+                border-bottom: none;
+            }
+
+            .stored-photos-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 10px;
+            }
+
+            .default-outfits-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 10px;
+            }
+
+            .privacy-options {
+                gap: 10px;
+            }
+
+            .privacy-option {
+                padding: 12px;
+            }
         }
 
         @media (max-width: 600px) {
@@ -858,17 +932,23 @@ $csrfToken = Session::generateCSRFToken();
                 grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
                 gap: 8px;
             }
-        }
 
-        @media (max-width: 600px) {
             .container {
                 margin: 0;
                 border-radius: 0;
                 min-height: 100vh;
             }
 
+            .header {
+                padding: 20px 15px;
+            }
+
             .header h1 {
                 font-size: 1.5em;
+            }
+
+            .form-container {
+                padding: 20px 15px;
             }
 
             .file-upload {
@@ -878,6 +958,37 @@ $csrfToken = Session::generateCSRFToken();
 
             .upload-icon {
                 font-size: 2em;
+            }
+
+            .stored-photos-grid {
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+                gap: 8px;
+            }
+
+            .default-outfits-grid {
+                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+                gap: 8px;
+            }
+
+            .stored-photo img,
+            .default-outfit img {
+                height: 100px;
+            }
+
+            .default-outfit img {
+                height: 100px;
+            }
+
+            .privacy-option {
+                padding: 10px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .privacy-option input[type="radio"] {
+                margin-right: 0;
+                margin-bottom: 8px;
+                margin-top: 0;
             }
         }
     </style>
@@ -1080,22 +1191,29 @@ $csrfToken = Session::generateCSRFToken();
                     });
                     document.getElementById(tab + '-tab').classList.add('active');
 
-                    // Update form data
-                    if (useStoredPhotoInput) {
-                        useStoredPhotoInput.value = tab === 'stored' ? '1' : '0';
+                    // Update form data based on which section this tab belongs to
+                    if (tab === 'stored' || tab === 'upload') {
+                        // Photo selection tabs
+                        if (useStoredPhotoInput) {
+                            useStoredPhotoInput.value = tab === 'stored' ? '1' : '0';
+                        }
+                    } else if (tab === 'default-outfits' || tab === 'upload-outfit') {
+                        // Outfit selection tabs
+                        const useDefaultOutfitInput = document.querySelector('input[name="use_default_outfit"]');
+                        if (useDefaultOutfitInput) {
+                            useDefaultOutfitInput.value = tab === 'default-outfits' ? '1' : '0';
+                        }
+
+                        // Update outfit photo input requirement
+                        const outfitInput = document.querySelector('input[name="outfit_photo"]');
+                        if (outfitInput) {
+                            outfitInput.required = tab !== 'default-outfits';
+                        }
                     }
 
-                    // Handle outfit tab switching
-                    const useDefaultOutfitInput = document.querySelector('input[name="use_default_outfit"]');
-                    if (useDefaultOutfitInput) {
-                        useDefaultOutfitInput.value = tab === 'default-outfits' ? '1' : '0';
-                    }
-
-                    // Update outfit photo input requirement
-                    const outfitInput = document.querySelector('input[name="outfit_photo"]');
-                    if (outfitInput) {
-                        outfitInput.required = tab !== 'default-outfits';
-                    }
+                    console.log('Tab switched to:', tab);
+                    console.log('use_stored_photo:', document.querySelector('input[name="use_stored_photo"]')?.value);
+                    console.log('use_default_outfit:', document.querySelector('input[name="use_default_outfit"]')?.value);
                 });
             });
 
@@ -1139,6 +1257,12 @@ $csrfToken = Session::generateCSRFToken();
                     // Update hidden input with outfit path
                     if (defaultOutfitPathInput) {
                         defaultOutfitPathInput.value = outfit.dataset.outfitPath;
+                    }
+
+                    // Update the use_default_outfit input to ensure it's set to 1
+                    const useDefaultOutfitInput = document.querySelector('input[name="use_default_outfit"]');
+                    if (useDefaultOutfitInput) {
+                        useDefaultOutfitInput.value = '1';
                     }
                 });
             });
@@ -1248,6 +1372,15 @@ $csrfToken = Session::generateCSRFToken();
             // Form submission with AJAX
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
+
+                // Debug form state before validation
+                console.log('Form submission debug:');
+                console.log('use_stored_photo:', document.querySelector('input[name="use_stored_photo"]')?.value);
+                console.log('use_default_outfit:', document.querySelector('input[name="use_default_outfit"]')?.value);
+                console.log('stored_photo_id:', document.querySelector('input[name="stored_photo_id"]')?.value);
+                console.log('default_outfit_path:', document.querySelector('input[name="default_outfit_path"]')?.value);
+                console.log('Selected stored photo:', document.querySelector('.stored-photo.selected'));
+                console.log('Selected default outfit:', document.querySelector('.default-outfit.selected'));
 
                 // Validate form first
                 if (!validateForm()) {
@@ -1453,11 +1586,12 @@ $csrfToken = Session::generateCSRFToken();
                     }
                 }
 
-                // Check outfit photo
-                const useDefaultOutfit = document.querySelector('input[name="use_default_outfit"]')?.value === '1';
+                // Check outfit photo - determine which tab is active
+                const defaultOutfitTab = document.querySelector('[data-tab="default-outfits"]');
+                const isDefaultOutfitTabActive = defaultOutfitTab && defaultOutfitTab.classList.contains('active');
                 const outfitInput = document.querySelector('input[name="outfit_photo"]');
 
-                if (useDefaultOutfit) {
+                if (isDefaultOutfitTabActive) {
                     const selectedOutfit = document.querySelector('.default-outfit.selected');
                     if (!selectedOutfit) {
                         showAlert('Please select a default outfit', 'error');
@@ -1480,7 +1614,7 @@ $csrfToken = Session::generateCSRFToken();
                 }
 
                 // Add outfit photo files if uploading
-                if (!useDefaultOutfit && outfitInput.files) {
+                if (!isDefaultOutfitTabActive && outfitInput.files) {
                     filesToCheck.push(...outfitInput.files);
                 }
 
