@@ -383,7 +383,7 @@ class AIService {
 
 Take the exact person shown in the first image (preserve their identity, face, hair, body proportions, and pose) and dress them in the clothing items shown in the second image. The person should be positioned facing the camera like a professional fashion model.
 
-From the second image, identify and apply each clothing item: tops, bottoms, shoes, accessories. Ensure realistic fit, proper fabric draping, and accurate colors/textures from the original outfit.
+From the second image, identify and apply each clothing item: tops, bottoms, shoes, accessories. Ensure realistic fit, proper fabric draping, and accurate colors/textures from the original outfit. If there is a person in the second image, disregard their face and body - focus only on the outfit and accessories, no background. Identify the outfit items and place them on the first person.
 
 IMPORTANT: Frame the shot as a square photo (1:1 aspect ratio) showing the person from head to at least mid-thigh or knee level, ensuring the full head and face are visible within the square frame. Use a slightly wider shot to accommodate the square format.
 
