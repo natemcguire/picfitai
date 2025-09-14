@@ -107,8 +107,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Logger::info('Form submission debug', [
             'use_stored_photo' => $_POST['use_stored_photo'] ?? 'not set',
             'stored_photo_id' => $_POST['stored_photo_id'] ?? 'not set',
+            'use_default_outfit' => $_POST['use_default_outfit'] ?? 'not set',
+            'default_outfit_path' => $_POST['default_outfit_path'] ?? 'not set',
             'has_standing_photos_files' => isset($_FILES['standing_photos']) ? 'yes' : 'no',
             'standing_photos_count' => isset($_FILES['standing_photos']['name']) ? count(array_filter($_FILES['standing_photos']['name'])) : 0,
+            'has_outfit_photo_file' => isset($_FILES['outfit_photo']) ? 'yes' : 'no',
+            'outfit_photo_name' => $_FILES['outfit_photo']['name'] ?? 'not set',
             'useStoredPhoto_boolean' => $useStoredPhoto ? 'true' : 'false'
         ]);
 
@@ -133,9 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'name' => $storedPhoto['original_name']
             ];
         } else {
-            // Use uploaded photos
-            $validationErrors = AIService::validateUploadedFiles($_FILES['standing_photos'] ?? [], $_FILES['outfit_photo'] ?? []);
-
+            // Use uploaded photos - only validate standing photos for now
+            $validationErrors = AIService::validateUploadedFiles($_FILES['standing_photos'] ?? [], []);
+            
             if (!empty($validationErrors)) {
                 throw new Exception(implode(', ', $validationErrors));
             }
@@ -213,8 +217,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'name' => basename($defaultOutfitPath)
             ];
         } else {
-            // Use uploaded outfit
-            $outfitPhoto = $_FILES['outfit_photo'] ?? [];
+            // Use uploaded outfit - validate it
+            if (empty($_FILES['outfit_photo']['name'])) {
+                throw new Exception('Please upload an outfit photo or select a default outfit');
+            }
+            
+            $outfitValidationErrors = AIService::validateUploadedFiles([], $_FILES['outfit_photo'] ?? []);
+            if (!empty($outfitValidationErrors)) {
+                throw new Exception(implode(', ', $outfitValidationErrors));
+            }
+            
+            $outfitPhoto = $_FILES['outfit_photo'];
         }
 
         // Always use background processing now
@@ -1208,6 +1221,10 @@ $csrfToken = Session::generateCSRFToken();
                         const outfitInput = document.querySelector('input[name="outfit_photo"]');
                         if (outfitInput) {
                             outfitInput.required = tab !== 'default-outfits';
+                            // Clear the file input when switching to default outfits
+                            if (tab === 'default-outfits') {
+                                outfitInput.value = '';
+                            }
                         }
                     }
 
@@ -1394,6 +1411,12 @@ $csrfToken = Session::generateCSRFToken();
                 const formData = new FormData(form);
                 formData.append('ajax', '1');
                 formData.append('background', '1'); // Always use background processing
+
+                // Debug what we're sending
+                console.log('FormData contents:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(key, value);
+                }
 
                 // Show progress updates
                 let progress = 0;
@@ -1594,6 +1617,12 @@ $csrfToken = Session::generateCSRFToken();
                 if (isDefaultOutfitTabActive) {
                     const selectedOutfit = document.querySelector('.default-outfit.selected');
                     if (!selectedOutfit) {
+                        showAlert('Please select a default outfit', 'error');
+                        return false;
+                    }
+                    // Also check that the hidden input has the path
+                    const defaultOutfitPath = document.querySelector('input[name="default_outfit_path"]');
+                    if (!defaultOutfitPath || !defaultOutfitPath.value) {
                         showAlert('Please select a default outfit', 'error');
                         return false;
                     }
