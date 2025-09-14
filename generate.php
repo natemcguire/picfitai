@@ -541,6 +541,9 @@ $csrfToken = Session::generateCSRFToken();
             border: 3px solid transparent;
             background: white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
         }
 
         .gallery-item:hover {
@@ -865,12 +868,21 @@ $csrfToken = Session::generateCSRFToken();
             }
 
             .gallery-grid {
-                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-                gap: 8px;
+                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+                gap: 12px;
+            }
+
+            .gallery-item {
+                min-height: 120px;
+                min-width: 90px;
             }
 
             .gallery-item img {
                 height: 100px;
+            }
+
+            .gallery-item:active {
+                transform: scale(0.95);
             }
 
             .privacy-option {
@@ -1093,7 +1105,13 @@ $csrfToken = Session::generateCSRFToken();
             const outfitPreview = document.getElementById('outfitPreview');
 
             outfitItems.forEach(item => {
-                item.addEventListener('click', () => {
+                // Add both click and touchstart for better mobile support
+                const handleSelection = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log('Outfit item clicked/touched:', item.dataset.outfitPath);
+                    
                     // Remove selection from all outfit items
                     outfitItems.forEach(i => i.classList.remove('selected'));
 
@@ -1118,6 +1136,20 @@ $csrfToken = Session::generateCSRFToken();
                     fileInput.value = '';
 
                     console.log('Selected default outfit:', item.dataset.outfitPath);
+                    console.log('Form state - use_default_outfit:', useDefaultOutfitInput?.value);
+                    console.log('Form state - default_outfit_path:', defaultOutfitPathInput?.value);
+                };
+
+                item.addEventListener('click', handleSelection);
+                item.addEventListener('touchstart', handleSelection, { passive: false });
+                
+                // Add visual feedback for mobile
+                item.addEventListener('touchstart', () => {
+                    item.style.transform = 'scale(0.95)';
+                });
+                
+                item.addEventListener('touchend', () => {
+                    item.style.transform = '';
                 });
             });
 
@@ -1145,6 +1177,24 @@ $csrfToken = Session::generateCSRFToken();
                 if (defaultOutfitPathInput) {
                     defaultOutfitPathInput.value = '';
                 }
+            });
+
+            // Mobile-specific: Add a fallback for outfit selection
+            // Sometimes touch events don't work properly, so we'll add a double-tap fallback
+            let lastTap = 0;
+            outfitItems.forEach(item => {
+                item.addEventListener('touchend', (e) => {
+                    const currentTime = new Date().getTime();
+                    const tapLength = currentTime - lastTap;
+                    if (tapLength < 500 && tapLength > 0) {
+                        // Double tap detected
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Double tap detected on outfit item');
+                        item.click(); // Trigger the click event
+                    }
+                    lastTap = currentTime;
+                });
             });
 
             // Handle privacy option changes
@@ -1259,8 +1309,10 @@ $csrfToken = Session::generateCSRFToken();
                 console.log('use_default_outfit:', document.querySelector('input[name="use_default_outfit"]')?.value);
                 console.log('stored_photo_id:', document.querySelector('input[name="stored_photo_id"]')?.value);
                 console.log('default_outfit_path:', document.querySelector('input[name="default_outfit_path"]')?.value);
-                console.log('Selected stored photo:', document.querySelector('.stored-photo.selected'));
-                console.log('Selected default outfit:', document.querySelector('.default-outfit.selected'));
+                console.log('Selected stored photo:', document.querySelector('.gallery-item[data-photo-id].selected'));
+                console.log('Selected default outfit:', document.querySelector('.gallery-item[data-outfit-path].selected'));
+                console.log('Outfit file input files:', document.querySelector('input[name="outfit_photo"]')?.files?.length || 0);
+                console.log('Is mobile:', /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
 
                 // Validate form first
                 if (!validateForm()) {
