@@ -214,6 +214,14 @@ class BackgroundJobService {
     public static function processAllQueuedJobs(): int {
         $pdo = Database::getInstance();
 
+        // First, clean up stuck jobs older than 10 minutes
+        $stuckJobsCleanup = self::cleanupStuckJobs();
+        if ($stuckJobsCleanup > 0) {
+            Logger::warning('BackgroundJobService - Cleaned up stuck jobs', [
+                'stuck_jobs_cleaned' => $stuckJobsCleanup
+            ]);
+        }
+
         $stmt = $pdo->prepare('SELECT job_id FROM background_jobs WHERE status = "queued" ORDER BY created_at ASC LIMIT 10');
         $stmt->execute();
         $jobs = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -251,5 +259,108 @@ class BackgroundJobService {
         $stmt->execute([$daysOld]);
 
         return $stmt->rowCount();
+    }
+
+    public static function cleanupStuckJobs(int $timeoutMinutes = 10): int {
+        $pdo = Database::getInstance();
+
+        // Get stuck jobs for logging
+        $stuckJobsStmt = $pdo->prepare('
+            SELECT job_id, started_at, ROUND((julianday("now") - julianday(started_at)) * 24 * 60) as minutes_running
+            FROM background_jobs
+            WHERE status = "processing"
+            AND datetime(started_at) < datetime("now", "-" || ? || " minutes")
+        ');
+        $stuckJobsStmt->execute([$timeoutMinutes]);
+        $stuckJobs = $stuckJobsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($stuckJobs)) {
+            Logger::warning('BackgroundJobService - Found stuck jobs', [
+                'stuck_jobs' => $stuckJobs,
+                'timeout_minutes' => $timeoutMinutes
+            ]);
+        }
+
+        // Update stuck background jobs
+        $backgroundJobsStmt = $pdo->prepare('
+            UPDATE background_jobs
+            SET status = "failed",
+                error_message = "Job stuck - timeout after " || ? || " minutes",
+                completed_at = CURRENT_TIMESTAMP
+            WHERE status = "processing"
+            AND datetime(started_at) < datetime("now", "-" || ? || " minutes")
+        ');
+        $backgroundJobsStmt->execute([$timeoutMinutes, $timeoutMinutes]);
+        $backgroundJobsCount = $backgroundJobsStmt->rowCount();
+
+        // Update stuck generations
+        $generationsStmt = $pdo->prepare('
+            UPDATE generations
+            SET status = "failed",
+                error_message = "Generation stuck - timeout after " || ? || " minutes",
+                completed_at = CURRENT_TIMESTAMP
+            WHERE status = "processing"
+            AND datetime(created_at) < datetime("now", "-" || ? || " minutes")
+        ');
+        $generationsStmt->execute([$timeoutMinutes, $timeoutMinutes]);
+        $generationsCount = $generationsStmt->rowCount();
+
+        $totalCleaned = $backgroundJobsCount + $generationsCount;
+
+        if ($totalCleaned > 0) {
+            Logger::info('BackgroundJobService - Cleaned up stuck records', [
+                'background_jobs_cleaned' => $backgroundJobsCount,
+                'generations_cleaned' => $generationsCount,
+                'total_cleaned' => $totalCleaned,
+                'timeout_minutes' => $timeoutMinutes
+            ]);
+        }
+
+        return $totalCleaned;
+    }
+
+    public static function getJobStats(): array {
+        $pdo = Database::getInstance();
+
+        // Get background job stats
+        $backgroundStats = $pdo->query('
+            SELECT status, COUNT(*) as count
+            FROM background_jobs
+            GROUP BY status
+        ')->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        // Get generation stats
+        $generationStats = $pdo->query('
+            SELECT status, COUNT(*) as count
+            FROM generations
+            GROUP BY status
+        ')->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        // Get recent activity (last 24 hours) - separate for background_jobs and generations
+        $recentJobsActivity = $pdo->query('
+            SELECT
+                COUNT(*) as total_jobs_24h,
+                SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_24h,
+                SUM(CASE WHEN status = "failed" THEN 1 ELSE 0 END) as failed_24h
+            FROM background_jobs
+            WHERE created_at > datetime("now", "-24 hours")
+        ')->fetch(PDO::FETCH_ASSOC);
+
+        $recentGenerationsActivity = $pdo->query('
+            SELECT
+                COUNT(*) as total_generations_24h,
+                SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_generations_24h,
+                SUM(CASE WHEN status = "failed" THEN 1 ELSE 0 END) as failed_generations_24h,
+                AVG(CASE WHEN processing_time IS NOT NULL THEN processing_time ELSE NULL END) as avg_processing_time
+            FROM generations
+            WHERE created_at > datetime("now", "-24 hours")
+        ')->fetch(PDO::FETCH_ASSOC);
+
+        return [
+            'background_jobs' => $backgroundStats,
+            'generations' => $generationStats,
+            'recent_jobs_activity' => $recentJobsActivity,
+            'recent_generations_activity' => $recentGenerationsActivity
+        ];
     }
 }

@@ -213,55 +213,127 @@ class AIService {
     
     private function makeGeminiRequest(array $data): array {
         $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=' . $this->geminiApiKey;
-        
-        $ch = curl_init();
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($data),
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json'
-            ],
-            CURLOPT_TIMEOUT => 120 // AI generation can take time
-        ]);
-        
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        $curlInfo = curl_getinfo($ch);
-        curl_close($ch);
-        
-        Logger::logApiCall('Gemini', $url, $data, [
-            'http_code' => $httpCode,
-            'curl_error' => $error,
-            'total_time' => $curlInfo['total_time'] ?? 0,
-            'response_size' => strlen($response)
-        ]);
-        
-        if ($error) {
-            Logger::error('AIService - Gemini API curl error', ['error' => $error]);
-            throw new Exception('Gemini API request failed: ' . $error);
+
+        // Retry configuration
+        $maxRetries = 3;
+        $baseDelay = 1; // seconds
+        $maxDelay = 30; // seconds
+
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            try {
+                Logger::info('AIService - Making Gemini API request', [
+                    'attempt' => $attempt,
+                    'max_retries' => $maxRetries,
+                    'url' => $url
+                ]);
+
+                $ch = curl_init();
+                curl_setopt_array($ch, [
+                    CURLOPT_URL => $url,
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => json_encode($data),
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_HTTPHEADER => [
+                        'Content-Type: application/json'
+                    ],
+                    CURLOPT_TIMEOUT => 120 // AI generation can take time
+                ]);
+
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $error = curl_error($ch);
+                $curlInfo = curl_getinfo($ch);
+                curl_close($ch);
+
+                Logger::logApiCall('Gemini', $url, $data, [
+                    'attempt' => $attempt,
+                    'http_code' => $httpCode,
+                    'curl_error' => $error,
+                    'total_time' => $curlInfo['total_time'] ?? 0,
+                    'response_size' => strlen($response)
+                ]);
+
+                if ($error) {
+                    throw new Exception('Gemini API request failed: ' . $error);
+                }
+
+                // Check for retryable HTTP errors
+                if ($httpCode >= 500 || $httpCode === 429) {
+                    // Server error or rate limit - retry
+                    throw new Exception("Gemini API error: HTTP $httpCode - $response");
+                } elseif ($httpCode !== 200) {
+                    // Client error - don't retry
+                    Logger::error('AIService - Gemini API non-retryable error', [
+                        'http_code' => $httpCode,
+                        'response' => $response,
+                        'attempt' => $attempt
+                    ]);
+                    throw new Exception("Gemini API error: HTTP $httpCode - $response");
+                }
+
+                $responseData = json_decode($response, true);
+                if (!$responseData) {
+                    throw new Exception('Invalid JSON response from Gemini API');
+                }
+
+                if (isset($responseData['error'])) {
+                    // Check if error is retryable
+                    $errorCode = $responseData['error']['code'] ?? 0;
+                    if ($errorCode >= 500 || $errorCode === 429) {
+                        throw new Exception('Gemini API error: ' . $responseData['error']['message']);
+                    } else {
+                        // Non-retryable error
+                        Logger::error('AIService - Gemini API non-retryable error', [
+                            'error_code' => $errorCode,
+                            'error_message' => $responseData['error']['message'],
+                            'attempt' => $attempt
+                        ]);
+                        throw new Exception('Gemini API error: ' . $responseData['error']['message']);
+                    }
+                }
+
+                // Success!
+                Logger::info('AIService - Gemini API request successful', [
+                    'attempt' => $attempt,
+                    'total_attempts' => $attempt
+                ]);
+                return $responseData;
+
+            } catch (Exception $e) {
+                $isLastAttempt = ($attempt === $maxRetries);
+                $isRetryableError = (
+                    strpos($e->getMessage(), 'HTTP 5') !== false ||
+                    strpos($e->getMessage(), 'HTTP 429') !== false ||
+                    strpos($e->getMessage(), 'curl error') !== false ||
+                    strpos($e->getMessage(), 'timeout') !== false
+                );
+
+                if ($isLastAttempt || !$isRetryableError) {
+                    Logger::error('AIService - Gemini API final failure', [
+                        'attempt' => $attempt,
+                        'max_retries' => $maxRetries,
+                        'error' => $e->getMessage(),
+                        'retryable' => $isRetryableError
+                    ]);
+                    throw $e;
+                }
+
+                // Calculate exponential backoff delay
+                $delay = min($baseDelay * pow(2, $attempt - 1), $maxDelay);
+
+                Logger::warning('AIService - Gemini API retryable error, waiting before retry', [
+                    'attempt' => $attempt,
+                    'max_retries' => $maxRetries,
+                    'error' => $e->getMessage(),
+                    'delay_seconds' => $delay
+                ]);
+
+                sleep($delay);
+            }
         }
-        
-        if ($httpCode !== 200) {
-            Logger::error('AIService - Gemini API HTTP error', [
-                'http_code' => $httpCode,
-                'response' => $response
-            ]);
-            throw new Exception("Gemini API error: HTTP $httpCode - $response");
-        }
-        
-        $responseData = json_decode($response, true);
-        if (!$responseData) {
-            throw new Exception('Invalid JSON response from Gemini API');
-        }
-        
-        if (isset($responseData['error'])) {
-            throw new Exception('Gemini API error: ' . $responseData['error']['message']);
-        }
-        
-        return $responseData;
+
+        // This should never be reached due to the logic above, but just in case
+        throw new Exception('Gemini API request failed after all retries');
     }
     
     private function imageToBase64(array $fileInfo): string {

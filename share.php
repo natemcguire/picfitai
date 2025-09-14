@@ -82,6 +82,11 @@ $pageTitle = 'PicFit.ai - AI Virtual Try-On';
 $shareUrl = 'https://picfit.ai/share/' . $shareToken;
 $imageUrl = $generation['result_url'];
 
+// Ensure image URL is absolute for social media sharing
+if (!str_starts_with($imageUrl, 'http')) {
+    $imageUrl = 'https://picfit.ai/' . ltrim($imageUrl, '/');
+}
+
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -93,13 +98,18 @@ $imageUrl = $generation['result_url'];
     <meta property="og:title" content="Check out this AI virtual try-on!">
     <meta property="og:description" content="See how AI can transform your style with PicFit.ai - the future of virtual fashion">
     <meta property="og:image" content="<?= htmlspecialchars($imageUrl) ?>">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="1500">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:url" content="<?= htmlspecialchars($shareUrl) ?>">
     <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PicFit.ai">
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Check out this AI virtual try-on!">
     <meta name="twitter:description" content="See how AI can transform your style with PicFit.ai">
     <meta name="twitter:image" content="<?= htmlspecialchars($imageUrl) ?>">
+    <meta name="twitter:site" content="@PicFitAI">
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Poppins:wght@300;400;600;700&display=swap');
