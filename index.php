@@ -454,7 +454,7 @@ $user = Session::getCurrentUser();
             <div class="polaroid-container">
                 <div class="polaroid">
                     <div class="photo-frame">
-                        <img src="/images/outfits/outfit-girl-3.png" alt="AI Virtual Try-On Example" class="photo">
+			<img src="/images/outfits/outfit.png" alt="AI Virtual Try-On Example" class="photo">
                     </div>
                     <div class="caption">
                         AI Virtual Try-On Magic ✨
