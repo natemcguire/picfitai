@@ -757,9 +757,18 @@ if (file_exists($localImagePath)) {
                     AI Outfit Magic ✨
                 <?php endif; ?>
             </div>
-            <div class="date">
-                <?= date('M j, Y', strtotime($generation['completed_at'])) ?>
-            </div>
+            <?php
+            $totalRatings = (int)($ratings['total_ratings'] ?? 0);
+            if ($totalRatings > 0):
+            ?>
+                <div class="rating-display has-ratings">
+                    <?= number_format((int)($ratings['likes'] ?? 0)) ?> likes, <?= number_format((int)($ratings['dislikes'] ?? 0)) ?> dislikes
+                </div>
+            <?php else: ?>
+                <div class="rating-display" id="noRatingsText">
+                    Be the first to rate this photo!
+                </div>
+            <?php endif; ?>
         </div>
 
         <!-- Rating Section -->
@@ -775,18 +784,7 @@ if (file_exists($localImagePath)) {
                 </button>
             </div>
 
-            <?php
-            $totalRatings = (int)($ratings['total_ratings'] ?? 0);
-            if ($totalRatings > 0):
-            ?>
-                <div class="rating-display has-ratings">
-                    <?= number_format((int)($ratings['likes'] ?? 0)) ?> likes, <?= number_format((int)($ratings['dislikes'] ?? 0)) ?> dislikes
-                </div>
-            <?php else: ?>
-                <div class="rating-display" id="noRatingsText">
-                    Be the first to rate this photo!
-                </div>
-            <?php endif; ?>
+           
         </div>
 
         <div class="share-section">
