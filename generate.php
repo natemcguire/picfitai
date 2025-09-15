@@ -33,10 +33,22 @@ foreach ($userPhotos as &$photo) {
     $photo['url'] = UserPhotoService::getPhotoUrl($photo['filename']);
 }
 
-// Get default outfit options
+// Get outfit collections and options
+$collections = [];
 $outfitOptions = [];
 $outfitsDir = __DIR__ . '/images/outfits/';
 
+// Define featured collections
+$featuredCollections = [
+    'theemmys' => [
+        'name' => 'The Emmy\'s',
+        'icon' => '⭐',
+        'featured' => true,
+        'description' => 'Red carpet looks from the Emmy Awards'
+    ]
+];
+
+// Get regular outfits (not in collections)
 if (is_dir($outfitsDir) && is_readable($outfitsDir)) {
     $outfitFiles = glob($outfitsDir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE);
     foreach ($outfitFiles as $filePath) {
@@ -46,8 +58,38 @@ if (is_dir($outfitsDir) && is_readable($outfitsDir)) {
                 'filename' => $filename,
                 'url' => '/images/outfits/' . $filename,
                 'path' => $filePath,
-                'name' => ucfirst(pathinfo($filename, PATHINFO_FILENAME))
+                'name' => ucfirst(pathinfo($filename, PATHINFO_FILENAME)),
+                'collection' => null
             ];
+        }
+    }
+}
+
+// Get collection outfits
+foreach ($featuredCollections as $collectionId => $collectionInfo) {
+    $collectionDir = $outfitsDir . $collectionId . '/';
+    if (is_dir($collectionDir) && is_readable($collectionDir)) {
+        $collectionOutfits = [];
+        $collectionFiles = glob($collectionDir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE);
+
+        foreach ($collectionFiles as $filePath) {
+            if (is_readable($filePath)) {
+                $filename = basename($filePath);
+                $collectionOutfits[] = [
+                    'filename' => $filename,
+                    'url' => '/images/outfits/' . $collectionId . '/' . $filename,
+                    'path' => $filePath,
+                    'name' => ucfirst(pathinfo($filename, PATHINFO_FILENAME)),
+                    'collection' => $collectionId
+                ];
+            }
+        }
+
+        if (!empty($collectionOutfits)) {
+            $collections[$collectionId] = array_merge($collectionInfo, [
+                'id' => $collectionId,
+                'outfits' => $collectionOutfits
+            ]);
         }
     }
 }
@@ -372,6 +414,7 @@ $csrfToken = Session::generateCSRFToken();
             width: 100%;
             height: 120px;
             object-fit: cover;
+            object-position: center -10px;
             display: block;
         }
 
@@ -937,28 +980,69 @@ $csrfToken = Session::generateCSRFToken();
 
                     <!-- Default Outfits Tab -->
                     <div class="tab-content" id="outfit-default">
-                        <?php if (!empty($outfitOptions)): ?>
-                            <div class="selection-grid">
-                                <?php foreach ($outfitOptions as $index => $outfit): ?>
-                                    <div class="selection-item">
-                                        <input type="radio"
-                                               name="outfit_source"
-                                               value="default"
-                                               id="outfit_<?= $index ?>"
-                                               data-outfit-path="<?= htmlspecialchars($outfit['path']) ?>">
-                                        <label for="outfit_<?= $index ?>">
-                                            <img src="<?= htmlspecialchars($outfit['url']) ?>"
-                                                 alt="<?= htmlspecialchars($outfit['name']) ?>"
-                                                 <?= $index >= 8 ? 'loading="lazy"' : '' ?>>
-                                            <div class="selection-name"><?= htmlspecialchars($outfit['name']) ?></div>
-                                        </label>
-                                    </div>
+                        <!-- Featured Collections -->
+                        <?php if (!empty($collections)): ?>
+                            <div style="margin-bottom: 30px;">
+                                <?php foreach ($collections as $collection): ?>
+                                    <?php if ($collection['featured']): ?>
+                                        <div style="margin-bottom: 25px;">
+                                            <h3 style="color: #333; font-size: 1.3em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                                                <span><?= htmlspecialchars($collection['icon']) ?></span>
+                                                <?= htmlspecialchars($collection['name']) ?>
+                                                <span style="background: linear-gradient(45deg, #FFD700, #FFA500); color: white; font-size: 0.7em; padding: 3px 8px; border-radius: 12px; font-weight: 600;">FEATURED</span>
+                                            </h3>
+                                            <?php if (!empty($collection['description'])): ?>
+                                                <p style="color: #666; margin-bottom: 15px; font-size: 0.95em;"><?= htmlspecialchars($collection['description']) ?></p>
+                                            <?php endif; ?>
+                                            <div class="selection-grid">
+                                                <?php foreach ($collection['outfits'] as $cIndex => $outfit): ?>
+                                                    <div class="selection-item">
+                                                        <input type="radio"
+                                                               name="outfit_source"
+                                                               value="default"
+                                                               id="collection_<?= $collection['id'] ?>_<?= $cIndex ?>"
+                                                               data-outfit-path="<?= htmlspecialchars($outfit['path']) ?>">
+                                                        <label for="collection_<?= $collection['id'] ?>_<?= $cIndex ?>">
+                                                            <img src="<?= htmlspecialchars($outfit['url']) ?>"
+                                                                 alt="<?= htmlspecialchars($outfit['name']) ?>"
+                                                                 loading="lazy">
+                                                            <div class="selection-name"><?= htmlspecialchars($outfit['name']) ?></div>
+                                                        </label>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
                                 <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Regular Outfits -->
+                        <?php if (!empty($outfitOptions)): ?>
+                            <div>
+                                <h3 style="color: #333; font-size: 1.2em; margin-bottom: 15px;">Classic Outfits</h3>
+                                <div class="selection-grid">
+                                    <?php foreach ($outfitOptions as $index => $outfit): ?>
+                                        <div class="selection-item">
+                                            <input type="radio"
+                                                   name="outfit_source"
+                                                   value="default"
+                                                   id="outfit_<?= $index ?>"
+                                                   data-outfit-path="<?= htmlspecialchars($outfit['path']) ?>">
+                                            <label for="outfit_<?= $index ?>">
+                                                <img src="<?= htmlspecialchars($outfit['url']) ?>"
+                                                     alt="<?= htmlspecialchars($outfit['name']) ?>"
+                                                     <?= $index >= 8 ? 'loading="lazy"' : '' ?>>
+                                                <div class="selection-name"><?= htmlspecialchars($outfit['name']) ?></div>
+                                            </label>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
                             <input type="hidden" name="default_outfit_path" id="default_outfit_path" value="">
                         <?php else: ?>
                             <div style="text-align: center; padding: 40px; background: #f8f9fa; border-radius: 10px;">
-                                <p style="color: #6c757d;">No default outfits available. Please upload your own.</p>
+                                <p style="color: #6c757d;">No outfits available. Please upload your own.</p>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -1053,9 +1137,14 @@ $csrfToken = Session::generateCSRFToken();
                 </div>
 
                 <div class="progress-text" id="progressText">0% complete</div>
-                <button class="view-all-btn" onclick="window.location.href='/dashboard.php'">
-                    👗 View All Fits
-                </button>
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px; flex-wrap: nowrap;">
+                    <button class="view-all-btn" style="background: linear-gradient(45deg, #ff6b9d, #ee5a6f); white-space: nowrap; min-width: auto; padding: 12px 20px;" onclick="location.reload()">
+                        ✨ Generate Another
+                    </button>
+                    <button class="view-all-btn" style="white-space: nowrap; min-width: auto; padding: 12px 20px;" onclick="window.location.href='/dashboard.php'">
+                        👗 View My Fits
+                    </button>
+                </div>
             </div>
 
             <div class="success-content" id="successContent">

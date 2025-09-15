@@ -34,36 +34,43 @@ class AIService {
 
         $inputHash = md5(json_encode($hashInputs));
 
-        // Check for cached result (within last 24 hours)
-        $stmt = $pdo->prepare('
-            SELECT id, result_url, share_token, processing_time
-            FROM generations
-            WHERE input_hash = ?
-            AND status = "completed"
-            AND created_at > datetime("now", "-24 hours")
-            ORDER BY created_at DESC
-            LIMIT 1
-        ');
-        $stmt->execute([$inputHash]);
-        $cachedResult = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Check for cached result (within last 24 hours) - only if caching is enabled
+        if (Config::get('enable_cache', true)) {
+            $stmt = $pdo->prepare('
+                SELECT id, result_url, share_token, processing_time
+                FROM generations
+                WHERE input_hash = ?
+                AND status = "completed"
+                AND created_at > datetime("now", "-24 hours")
+                ORDER BY created_at DESC
+                LIMIT 1
+            ');
+            $stmt->execute([$inputHash]);
+            $cachedResult = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($cachedResult) {
-            Logger::info('AIService - Returning cached result', [
+            if ($cachedResult) {
+                Logger::info('AIService - Returning cached result', [
+                    'user_id' => $userId,
+                    'cached_generation_id' => $cachedResult['id'],
+                    'input_hash' => $inputHash
+                ]);
+
+                return [
+                    'success' => true,
+                    'generation_id' => $cachedResult['id'],
+                    'result_url' => $cachedResult['result_url'],
+                    'processing_time' => 0, // Instant from cache
+                    'is_public' => $isPublic,
+                    'share_token' => $cachedResult['share_token'],
+                    'share_url' => $cachedResult['share_token'] ? '/share/' . $cachedResult['share_token'] : null,
+                    'from_cache' => true
+                ];
+            }
+        } else {
+            Logger::debug('AIService - Cache disabled, generating new result', [
                 'user_id' => $userId,
-                'cached_generation_id' => $cachedResult['id'],
                 'input_hash' => $inputHash
             ]);
-
-            return [
-                'success' => true,
-                'generation_id' => $cachedResult['id'],
-                'result_url' => $cachedResult['result_url'],
-                'processing_time' => 0, // Instant from cache
-                'is_public' => $isPublic,
-                'share_token' => $cachedResult['share_token'],
-                'share_url' => $cachedResult['share_token'] ? '/share/' . $cachedResult['share_token'] : null,
-                'from_cache' => true
-            ];
         }
 
         // Analyze outfit image to determine processing approach
@@ -453,20 +460,8 @@ class AIService {
             throw new Exception('Invalid base64 image data');
         }
 
-        Logger::info('AIService - Watermarking image', [
-            'original_size' => strlen($imageData),
-            'mime_type' => $mimeType,
-            'filename' => $filename
-        ]);
-
         // Apply watermark to all generated images
         $watermarkedData = $this->addWatermark($imageData, $mimeType);
-
-        Logger::info('AIService - Watermark applied', [
-            'original_size' => strlen($imageData),
-            'watermarked_size' => strlen($watermarkedData),
-            'size_difference' => strlen($watermarkedData) - strlen($imageData)
-        ]);
 
         if (file_put_contents($filepath, $watermarkedData) === false) {
             throw new Exception('Failed to save generated image');
@@ -498,24 +493,31 @@ class AIService {
             $imgWidth = $img->getImageWidth();
             $imgHeight = $img->getImageHeight();
 
-            // Watermark configuration
-            $watermarkText = '👗 picfit.ai';
-            $fontSize = max(14, $imgWidth * 0.035); // ~3.5% of width
+            // Load watermark logo
+            $watermarkPath = __DIR__ . '/../images/picfitlogo.jpg';
+            if (!file_exists($watermarkPath)) {
+                // Fallback if logo doesn't exist
+                Logger::warning('AIService - Watermark logo not found', ['path' => $watermarkPath]);
+                return $this->addWatermarkGD($imageData, $mimeType);
+            }
 
-            // Create text watermark
-            $draw = new ImagickDraw();
-            $draw->setFillColor(new ImagickPixel('rgba(255,255,255,0.65)')); // white, 65% opacity
-            $draw->setFontSize($fontSize);
+            $watermark = new Imagick($watermarkPath);
 
-            // Use southeast gravity with offset
-            $draw->setGravity(Imagick::GRAVITY_SOUTHEAST);
+            // Scale watermark to ~21% of image width (30% smaller than 30%)
+            $targetWidth = (int)($imgWidth * 0.21);
+            $watermark->scaleImage($targetWidth, 0); // 0 = auto height to maintain ratio
 
-            // Position: 15% from right, 25% from bottom
-            $xOffset = $imgWidth * 0.15;
-            $yOffset = $imgHeight * 0.25;
+            $wmWidth = $watermark->getImageWidth();
+            $wmHeight = $watermark->getImageHeight();
 
-            // Add text to image - with SE gravity, positive values move left and up
-            $img->annotateImage($draw, $xOffset, $yOffset, 0, $watermarkText);
+            // Position: pinned to bottom-right corner with padding
+            $paddingRight = 90; // pixels from right edge
+            $paddingBottom = 250; // pixels from bottom edge (moved up another 100px)
+            $x = $imgWidth - $wmWidth - $paddingRight;
+            $y = $imgHeight - $wmHeight - $paddingBottom;
+
+            // Composite watermark onto main image
+            $img->compositeImage($watermark, Imagick::COMPOSITE_OVER, $x, $y);
 
             // Set compression quality
             $img->setImageCompressionQuality(85);
@@ -523,14 +525,14 @@ class AIService {
             // Get the watermarked image data
             $watermarkedData = $img->getImageBlob();
 
+            $watermark->clear();
             $img->clear();
-            $draw->clear();
 
             Logger::info('AIService - Watermark applied using Imagick', [
                 'original_size' => strlen($imageData),
                 'watermarked_size' => strlen($watermarkedData),
                 'method' => 'imagick',
-                'font_used' => $fontPath ? basename($fontPath) : 'default'
+                'watermark_type' => 'image_overlay'
             ]);
 
             return $watermarkedData;
@@ -556,39 +558,57 @@ class AIService {
         $width = imagesx($image);
         $height = imagesy($image);
 
-        // Watermark configuration
-        $watermarkText = '👗 picfit.ai';
-        $fontSize = max(14, $width * 0.035); // ~3.5% of width
+        // Load watermark logo
+        $watermarkPath = __DIR__ . '/../images/picfitlogo.jpg';
+        if (file_exists($watermarkPath)) {
+            // Use image watermark
+            $watermark = imagecreatefromjpeg($watermarkPath);
+            if ($watermark) {
+                $wmWidth = imagesx($watermark);
+                $wmHeight = imagesy($watermark);
 
-        // Try to load custom font
-        $fontPath = __DIR__ . '/../public/fonts/Inter-Bold.ttf';
-        $useCustomFont = file_exists($fontPath);
+                // Scale watermark to ~21% of image width (30% smaller than 30%)
+                $targetWidth = (int)($width * 0.21);
+                $targetHeight = (int)($wmHeight * ($targetWidth / $wmWidth));
 
-        if ($useCustomFont) {
-            // Calculate text dimensions with TTF font
-            $textBox = imagettfbbox($fontSize, 0, $fontPath, $watermarkText);
-            $textWidth = $textBox[2] - $textBox[0];
-            $textHeight = $textBox[1] - $textBox[7];
+                // Create scaled watermark
+                $scaledWatermark = imagecreatetruecolor($targetWidth, $targetHeight);
+                imagecopyresampled($scaledWatermark, $watermark, 0, 0, 0, 0,
+                                   $targetWidth, $targetHeight, $wmWidth, $wmHeight);
+
+                // Position: pinned to bottom-right corner with padding
+                $paddingRight = 90; // pixels from right edge
+                $paddingBottom = 250; // pixels from bottom edge (moved up another 100px)
+                $x = $width - $targetWidth - $paddingRight;
+                $y = $height - $targetHeight - $paddingBottom;
+
+                // Merge watermark onto main image
+                imagecopy($image, $scaledWatermark, $x, $y, 0, 0, $targetWidth, $targetHeight);
+
+                imagedestroy($watermark);
+                imagedestroy($scaledWatermark);
+            }
         } else {
-            // Fallback to built-in font
-            $fontSize = 5; // Built-in font size (1-5)
-            $textWidth = imagefontwidth($fontSize) * strlen($watermarkText);
-            $textHeight = imagefontheight($fontSize);
-        }
+            // Fallback to text watermark if logo not found
+            $watermarkText = '👗 picfit.ai';
+            $fontSize = max(14, $width * 0.035);
+            $fontPath = __DIR__ . '/../public/fonts/Inter-Bold.ttf';
 
-        // Position: 15% from right, 25% from bottom
-        $xPadding = $width * 0.15;
-        $yPadding = $height * 0.25;
-        $x = $width - $textWidth - $xPadding;
-        $y = $height - $yPadding;
-
-        // Add white text with transparency (alpha: 0 = opaque, 127 = transparent)
-        $textColor = imagecolorallocatealpha($image, 255, 255, 255, 45); // white with 65% opacity
-
-        if ($useCustomFont) {
-            imagettftext($image, $fontSize, 0, $x, $y, $textColor, $fontPath, $watermarkText);
-        } else {
-            imagestring($image, $fontSize, $x, $y - $textHeight, $watermarkText, $textColor);
+            if (file_exists($fontPath)) {
+                $textBox = imagettfbbox($fontSize, 0, $fontPath, $watermarkText);
+                $textWidth = $textBox[2] - $textBox[0];
+                $x = $width - $textWidth - 30;
+                $y = $height - 30;
+                $textColor = imagecolorallocatealpha($image, 255, 255, 255, 45);
+                imagettftext($image, $fontSize, 0, $x, $y, $textColor, $fontPath, $watermarkText);
+            } else {
+                $fontSize = 5;
+                $textWidth = imagefontwidth($fontSize) * strlen($watermarkText);
+                $x = $width - $textWidth - 30;
+                $y = $height - 40;
+                $textColor = imagecolorallocate($image, 255, 255, 255);
+                imagestring($image, $fontSize, $x, $y, $watermarkText, $textColor);
+            }
         }
 
         // Convert back to binary data
@@ -625,12 +645,33 @@ class AIService {
     private function getGenerationPrompt(string $outfitType = 'clothing_only'): string {
         $basePrompt = "Create a photorealistic SQUARE FORMAT image (1:1 aspect ratio) of the person from the first image wearing the outfit from the second image.
 
+CRITICAL: Try really hard to match the facial features of the person in the first photo - preserve their exact identity, unique facial characteristics, face shape, skin tone, and hair. Make sure that the body and neck area are proportional, so the head and body are not abnormally sized. You should try to match the body shape of the person in the first photo too, so that the size feels natural to their face - maintain their build, height proportions, and overall body structure. The proportions should look natural and realistic.
+
 Take the exact person shown in the first image (preserve their identity, face, hair, body proportions, and pose) and dress them in the clothing items shown in the second image. The person should be positioned facing the camera like a professional fashion model.";
 
         if ($outfitType === 'person_wearing_outfit') {
-            $outfitInstructions = "From the second image, identify ONLY the clothing items: tops, bottoms, shoes, accessories worn by the person in that image. COMPLETELY IGNORE the person's face, body, background, and any other people in the second image - focus EXCLUSIVELY on extracting and identifying the outfit pieces. Take those specific clothing items and apply them to the person from the first image with realistic fit, proper fabric draping, and accurate colors/textures.";
+            $outfitInstructions = "From the second image, identify ONLY the clothing items: tops, bottoms, shoes, accessories worn by the person in that image. COMPLETELY IGNORE the person's face, body, background, and any other people in the second image - focus EXCLUSIVELY on extracting and identifying the outfit pieces.
+
+SPECIAL ATTENTION TO DETAILS: Look specifically at the EXACT details that are actually present in the outfit. Do NOT add any elements that are not visible. Capture only what exists including:
+- The actual fabric texture, patterns, and embellishments that are visible
+- The precise cut, silhouette, and neckline as shown (if sleeveless, keep it sleeveless)
+- If there are NO sleeves, do NOT add sleeves - preserve the exact sleeve style or lack thereof
+- Exact color and any visible design elements
+- Only the accessories that are actually visible and worn
+- The precise way the outfit actually drapes and flows as shown
+
+Take ONLY the clothing elements that are actually visible in the second image and apply them exactly as they appear to the person from the first image.";
         } else {
-            $outfitInstructions = "From the second image, identify and apply each clothing item: tops, bottoms, shoes, accessories. Ensure realistic fit, proper fabric draping, and accurate colors/textures from the original outfit.";
+            $outfitInstructions = "From the second image, identify and apply each clothing item: tops, bottoms, shoes, accessories.
+
+SPECIAL ATTENTION TO DETAILS: Look specifically at the EXACT details that are actually present in the outfit. Do NOT add any elements that are not visible. Capture only what exists including:
+- The actual fabric texture, patterns, and embellishments that are visible
+- The precise cut and silhouette as shown
+- If there are NO sleeves, do NOT add sleeves - preserve the exact style
+- Exact colors and any visible design elements
+- Only the accessories that are actually visible
+
+Ensure realistic fit, proper fabric draping, and accurate colors/textures from the original outfit exactly as shown.";
         }
 
         return $basePrompt . "\n\n" . $outfitInstructions . "\n\n" .
