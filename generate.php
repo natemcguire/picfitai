@@ -1484,9 +1484,10 @@ $csrfToken = Session::generateCSRFToken();
                 }
             });
 
-            // Simplified progress function
+            // Enhanced progress function with realistic timing
             let currentProgress = 0;
             let progressInterval = null;
+            let startTime = null;
 
             function startProgressTimer() {
                 const progressBar = document.getElementById('progressBar');
@@ -1494,6 +1495,7 @@ $csrfToken = Session::generateCSRFToken();
 
                 // Reset progress
                 currentProgress = 0;
+                startTime = Date.now();
                 progressBar.style.width = '0%';
                 progressText.textContent = 'Starting generation...';
 
@@ -1503,40 +1505,50 @@ $csrfToken = Session::generateCSRFToken();
                     progressInterval = null;
                 }
 
-                // Smooth progress animation to 95% over 25 seconds
-                const duration = 25000; // 25 seconds
-                const startTime = Date.now();
+                // More realistic progress timing based on actual API performance
+                const stages = [
+                    { duration: 2000, progress: 15, text: 'Optimizing images...' },
+                    { duration: 3000, progress: 30, text: 'Uploading to AI...' },
+                    { duration: 8000, progress: 60, text: 'AI analyzing your photo...' },
+                    { duration: 12000, progress: 85, text: 'Generating your fit...' },
+                    { duration: 5000, progress: 95, text: 'Finalizing result...' }
+                ];
+
+                let currentStage = 0;
+                let stageStartTime = Date.now();
 
                 progressInterval = setInterval(() => {
-                    const elapsed = Date.now() - startTime;
-                    const targetProgress = Math.min(95, (elapsed / duration) * 95);
-
-                    // Smooth increment
-                    if (currentProgress < targetProgress) {
-                        currentProgress = Math.min(targetProgress, currentProgress + 1);
+                    const totalElapsed = Date.now() - startTime;
+                    const stageElapsed = Date.now() - stageStartTime;
+                    
+                    if (currentStage < stages.length) {
+                        const stage = stages[currentStage];
+                        const stageProgress = Math.min(100, (stageElapsed / stage.duration) * 100);
+                        const totalProgress = (currentStage * 20) + (stageProgress * 0.2);
+                        
+                        currentProgress = Math.min(95, totalProgress);
                         progressBar.style.width = currentProgress + '%';
+                        progressText.textContent = stage.text;
 
-                        // Update text based on progress
-                        if (currentProgress < 20) {
-                            progressText.textContent = 'Uploading images...';
-                        } else if (currentProgress < 40) {
-                            progressText.textContent = 'Analyzing your photo...';
-                        } else if (currentProgress < 60) {
-                            progressText.textContent = 'Processing outfit...';
-                        } else if (currentProgress < 80) {
-                            progressText.textContent = 'AI is generating your fit...';
-                        } else {
-                            progressText.textContent = 'Applying finishing touches...';
+                        // Move to next stage
+                        if (stageElapsed >= stage.duration && currentStage < stages.length - 1) {
+                            currentStage++;
+                            stageStartTime = Date.now();
                         }
+                    } else {
+                        // Final stage - wait for completion
+                        currentProgress = Math.min(95, currentProgress + 0.5);
+                        progressBar.style.width = currentProgress + '%';
+                        progressText.textContent = 'Almost done...';
                     }
 
                     // Stop at 95%
                     if (currentProgress >= 95) {
                         clearInterval(progressInterval);
                         progressInterval = null;
-                        progressText.textContent = 'Almost done...';
+                        progressText.textContent = 'Finalizing...';
                     }
-                }, 100);
+                }, 200); // Check every 200ms for smoother updates
             }
 
             function updateProgressFromJob(job) {

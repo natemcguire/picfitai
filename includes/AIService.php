@@ -34,14 +34,14 @@ class AIService {
 
         $inputHash = md5(json_encode($hashInputs));
 
-        // Check for cached result (within last 24 hours) - only if caching is enabled
+        // Check for cached result (within last 7 days) - only if caching is enabled
         if (Config::get('enable_cache', true)) {
             $stmt = $pdo->prepare('
-                SELECT id, result_url, share_token, processing_time
+                SELECT id, result_url, share_token, processing_time, created_at
                 FROM generations
                 WHERE input_hash = ?
                 AND status = "completed"
-                AND created_at > datetime("now", "-24 hours")
+                AND created_at > datetime("now", "-7 days")
                 ORDER BY created_at DESC
                 LIMIT 1
             ');
@@ -52,7 +52,8 @@ class AIService {
                 Logger::info('AIService - Returning cached result', [
                     'user_id' => $userId,
                     'cached_generation_id' => $cachedResult['id'],
-                    'input_hash' => $inputHash
+                    'input_hash' => $inputHash,
+                    'cache_age_hours' => round((time() - strtotime($cachedResult['created_at'])) / 3600, 1)
                 ]);
 
                 return [
@@ -145,12 +146,16 @@ class AIService {
             throw new Exception('Gemini API key not configured');
         }
 
-        // Convert images to base64 with proper MIME types
-        $standingB64 = $this->imageToBase64($standingPhotos[0]);
-        $standingMimeType = $standingPhotos[0]['type'] ?? 'image/jpeg';
+        // Optimize images before API call to reduce payload size
+        $optimizedStanding = $this->optimizeImageForAPI($standingPhotos[0]);
+        $optimizedOutfit = $this->optimizeImageForAPI($outfitPhoto);
 
-        $outfitB64 = $this->imageToBase64($outfitPhoto);
-        $outfitMimeType = $outfitPhoto['type'] ?? 'image/jpeg';
+        // Convert optimized images to base64
+        $standingB64 = $this->imageToBase64($optimizedStanding);
+        $standingMimeType = $optimizedStanding['type'] ?? 'image/jpeg';
+
+        $outfitB64 = $this->imageToBase64($optimizedOutfit);
+        $outfitMimeType = $optimizedOutfit['type'] ?? 'image/jpeg';
 
         $prompt = $this->getGenerationPrompt($outfitAnalysis['outfit_type']);
 
@@ -187,20 +192,27 @@ class AIService {
             }
         }
 
+        $requestSize = strlen(json_encode($requestData));
         Logger::info('AIService - Making Gemini API request', [
             'model' => 'gemini-2.5-flash-image-preview',
             'parts_count' => count($requestData['contents'][0]['parts']),
-            'request_size' => strlen(json_encode($requestData)),
+            'request_size' => $requestSize,
+            'request_size_mb' => round($requestSize / 1024 / 1024, 2),
             'full_request_structure' => $debugRequest,
             'endpoint' => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent'
         ]);
         
+        $startTime = microtime(true);
         $response = $this->makeGeminiRequest($requestData);
+        $responseTime = microtime(true) - $startTime;
         
         Logger::info('AIService - Gemini API response received', [
+            'response_time_seconds' => round($responseTime, 2),
             'response_size' => strlen(json_encode($response)),
+            'response_size_mb' => round(strlen(json_encode($response)) / 1024 / 1024, 2),
             'has_candidates' => isset($response['candidates']),
-            'candidates_count' => count($response['candidates'] ?? [])
+            'candidates_count' => count($response['candidates'] ?? []),
+            'throughput_mb_per_sec' => round($requestSize / 1024 / 1024 / $responseTime, 2)
         ]);
         
         // FULL DEBUG: Log the entire response structure for frontend debugging
@@ -322,9 +334,22 @@ class AIService {
                     CURLOPT_POSTFIELDS => json_encode($data),
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_HTTPHEADER => [
-                        'Content-Type: application/json'
+                        'Content-Type: application/json',
+                        'Accept: application/json',
+                        'User-Agent: PicFitAI/1.0'
                     ],
-                    CURLOPT_TIMEOUT => 120 // AI generation can take time
+                    CURLOPT_TIMEOUT => 60,  // Reduced from 120s
+                    CURLOPT_CONNECTTIMEOUT => 10,  // Connection timeout
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_MAXREDIRS => 3,
+                    CURLOPT_SSL_VERIFYPEER => true,
+                    CURLOPT_SSL_VERIFYHOST => 2,
+                    CURLOPT_TCP_NODELAY => true,  // Disable Nagle's algorithm
+                    CURLOPT_TCP_KEEPALIVE => 1,   // Enable TCP keep-alive
+                    CURLOPT_TCP_KEEPIDLE => 10,   // Keep-alive idle time
+                    CURLOPT_TCP_KEEPINTVL => 5,   // Keep-alive interval
+                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_2_0,  // Use HTTP/2 if available
+                    CURLOPT_ENCODING => 'gzip,deflate'  // Enable compression
                 ]);
 
                 $response = curl_exec($ch);
@@ -435,6 +460,70 @@ class AIService {
         }
         
         return base64_encode($imageData);
+    }
+
+    /**
+     * Optimize image for API calls - resize and compress to reduce payload
+     */
+    private function optimizeImageForAPI(array $fileInfo): array {
+        if (!isset($fileInfo['tmp_name']) || !file_exists($fileInfo['tmp_name'])) {
+            return $fileInfo;
+        }
+
+        $maxWidth = 1024;  // Reduce from 2048 to 1024 for faster API calls
+        $maxHeight = 1024;
+        $quality = 0.85;   // Slightly lower quality for smaller files
+
+        try {
+            $imageData = file_get_contents($fileInfo['tmp_name']);
+            $image = imagecreatefromstring($imageData);
+            
+            if (!$image) {
+                return $fileInfo; // Return original if optimization fails
+            }
+
+            $originalWidth = imagesx($image);
+            $originalHeight = imagesy($image);
+
+            // Calculate new dimensions
+            $ratio = min($maxWidth / $originalWidth, $maxHeight / $originalHeight);
+            $newWidth = (int)($originalWidth * $ratio);
+            $newHeight = (int)($originalHeight * $ratio);
+
+            // Only resize if significantly larger
+            if ($newWidth < $originalWidth * 0.9 || $newHeight < $originalHeight * 0.9) {
+                $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
+                imagecopyresampled($resizedImage, $image, 0, 0, 0, 0, $newWidth, $newHeight, $originalWidth, $originalHeight);
+
+                // Save optimized image to temp file
+                $tempFile = tempnam(sys_get_temp_dir(), 'optimized_');
+                imagejpeg($resizedImage, $tempFile, (int)($quality * 100));
+                
+                imagedestroy($image);
+                imagedestroy($resizedImage);
+
+                Logger::info('AIService - Image optimized for API', [
+                    'original_size' => strlen($imageData),
+                    'optimized_size' => filesize($tempFile),
+                    'reduction' => round((1 - filesize($tempFile) / strlen($imageData)) * 100, 1) . '%',
+                    'dimensions' => "{$originalWidth}x{$originalHeight} → {$newWidth}x{$newHeight}"
+                ]);
+
+                return [
+                    'tmp_name' => $tempFile,
+                    'type' => 'image/jpeg',
+                    'size' => filesize($tempFile),
+                    'name' => pathinfo($fileInfo['name'], PATHINFO_FILENAME) . '_optimized.jpg'
+                ];
+            }
+
+            imagedestroy($image);
+            return $fileInfo;
+
+        } catch (Exception $e) {
+            Logger::warning('AIService - Image optimization failed', ['error' => $e->getMessage()]);
+            return $fileInfo; // Return original if optimization fails
+        }
     }
     
     public function saveGeneratedImage(string $base64Data, string $mimeType): string {
