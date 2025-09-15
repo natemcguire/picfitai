@@ -816,8 +816,8 @@ if (file_exists($localImagePath)) {
             if ($totalRatings > 0):
             ?>
                 <div class="rating-chips">
-                    <span class="chip chip-like"><span class="emoji">👍</span> <?= number_format((int)($ratings['likes'] ?? 0)) ?></span>
-                    <span class="chip chip-dislike"><span class="emoji">👎</span> <?= number_format((int)($ratings['dislikes'] ?? 0)) ?></span>
+                    <span class="chip chip-like">+<?= number_format((int)($ratings['likes'] ?? 0)) ?> likes</span>
+                    <span class="chip chip-dislike">-<?= number_format((int)($ratings['dislikes'] ?? 0)) ?> dislikes</span>
                 </div>
             <?php else: ?>
                 <div class="first-rating-badge" id="noRatingsText">Be the first to rate this photo! ✨</div>
