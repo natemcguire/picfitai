@@ -655,11 +655,65 @@ if (file_exists($localImagePath)) {
             font-size: 14px;
             color: #7f8c8d;
             font-weight: 500;
+            text-align: center;
+            margin-top: 10px;
         }
 
         .rating-display.has-ratings {
             color: #2c3e50;
             font-weight: 600;
+            text-align: center;
+        }
+
+        /* Bubblegum pop chips */
+        .rating-chips {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12), 0 0 24px rgba(255, 182, 193, 0.25);
+            backdrop-filter: blur(6px);
+            transform: translateZ(0);
+        }
+
+        .chip-like {
+            background: linear-gradient(45deg, #ff6b9d, #ff8fab);
+            color: #ffffff;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+        }
+
+        .chip-dislike {
+            background: linear-gradient(45deg, #a8e6cf, #88d8c0);
+            color: #2c3e50;
+        }
+
+        .chip .emoji {
+            font-size: 16px;
+        }
+
+        .first-rating-badge {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: linear-gradient(45deg, #fddb92, #d1fdff);
+            color: #2c3e50;
+            font-weight: 700;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.1), 0 0 24px rgba(173, 216, 230, 0.3);
+            text-align: center;
         }
 
         .rating-emoji {
@@ -761,13 +815,12 @@ if (file_exists($localImagePath)) {
             $totalRatings = (int)($ratings['total_ratings'] ?? 0);
             if ($totalRatings > 0):
             ?>
-                <div class="rating-display has-ratings">
-                    <?= number_format((int)($ratings['likes'] ?? 0)) ?> likes, <?= number_format((int)($ratings['dislikes'] ?? 0)) ?> dislikes
+                <div class="rating-chips">
+                    <span class="chip chip-like"><span class="emoji">👍</span> <?= number_format((int)($ratings['likes'] ?? 0)) ?></span>
+                    <span class="chip chip-dislike"><span class="emoji">👎</span> <?= number_format((int)($ratings['dislikes'] ?? 0)) ?></span>
                 </div>
             <?php else: ?>
-                <div class="rating-display" id="noRatingsText">
-                    Be the first to rate this photo!
-                </div>
+                <div class="first-rating-badge" id="noRatingsText">Be the first to rate this photo! ✨</div>
             <?php endif; ?>
         </div>
 
