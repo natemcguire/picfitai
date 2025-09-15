@@ -87,8 +87,20 @@ if (!str_starts_with($imageUrl, 'http')) {
     $imageUrl = 'https://picfit.ai/' . ltrim($imageUrl, '/');
 }
 
-// Debug: Log the final image URL (remove this in production)
+// Create dedicated image URLs for different platforms
+$twitterImageUrl = 'https://picfit.ai/api/twitter_image.php?token=' . urlencode($shareToken);
+$whatsappImageUrl = 'https://picfit.ai/api/whatsapp_image.php?token=' . urlencode($shareToken);
+
+// Debug: Log the final image URL and test accessibility
 error_log("Share page image URL: " . $imageUrl);
+
+// Additional debug - check if file exists locally
+$localImagePath = str_replace('https://picfit.ai/', __DIR__ . '/', $imageUrl);
+if (file_exists($localImagePath)) {
+    error_log("Image file exists locally: " . $localImagePath . " (Size: " . filesize($localImagePath) . " bytes)");
+} else {
+    error_log("WARNING: Image file not found locally: " . $localImagePath);
+}
 
 ?><!DOCTYPE html>
 <html lang="en">
@@ -100,16 +112,33 @@ error_log("Share page image URL: " . $imageUrl);
     <!-- Open Graph (good for Facebook, WhatsApp, LinkedIn, etc.) -->
     <meta property="og:title" content="PicFit – Try on outfits with AI" />
     <meta property="og:description" content="Upload a photo and instantly see outfits styled on you." />
-    <meta property="og:image" content="<?= htmlspecialchars($imageUrl) ?>" />
+    <meta property="og:image" content="<?= htmlspecialchars($whatsappImageUrl) ?>" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="1200" />
+    <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:url" content="<?= htmlspecialchars($shareUrl) ?>" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PicFit.ai" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="PicFit – Try on outfits with AI" />
     <meta name="twitter:description" content="Upload a photo and instantly see outfits styled on you." />
-    <meta name="twitter:image" content="<?= htmlspecialchars($imageUrl) ?>" />
+    <meta name="twitter:image" content="<?= htmlspecialchars($twitterImageUrl) ?>" />
+    <meta name="twitter:image:src" content="<?= htmlspecialchars($twitterImageUrl) ?>" />
+    <meta name="twitter:image:alt" content="AI-generated virtual try-on result" />
+    <meta name="twitter:image:width" content="1200" />
+    <meta name="twitter:image:height" content="630" />
     <meta name="twitter:site" content="@PicFitAI" />
+
+    <!-- Additional meta tags for better sharing -->
+    <meta name="description" content="Upload a photo and instantly see outfits styled on you." />
+    <link rel="canonical" href="<?= htmlspecialchars($shareUrl) ?>" />
+
+    <!-- WhatsApp-specific optimizations -->
+    <meta property="og:image:secure_url" content="<?= htmlspecialchars($whatsappImageUrl) ?>" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Poppins:wght@300;400;600;700&display=swap');

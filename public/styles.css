@@ -2,6 +2,19 @@
 /* Clean, mobile-first design with black background and white text */
 
 :root {
+  /* Bubblegum Aesthetic Colors */
+  --void: #0a0012;
+  --ivory: #f8f4f0;
+  --mist: #9ca3af;
+  --slash: #64748b;
+  --bubble-pink: #ff69b4;
+  --bubble-purple: #8b5cf6;
+  --bubble-blue: #3b82f6;
+  --bubble-mint: #10b981;
+  --bubble-peach: #fb7185;
+  --bubble-yellow: #fbbf24;
+
+  /* Original colors for compatibility */
   --black: #000000;
   --white: #ffffff;
   --gray-100: #f5f5f5;
@@ -387,6 +400,131 @@ p { margin-bottom: var(--space-4); }
 .text-center { text-align: center; }
 .text-left { text-align: left; }
 .text-right { text-align: right; }
+
+/* Bubblegum Aesthetic Utilities */
+.bg-void { background-color: var(--void); }
+.bg-ivory { background-color: var(--ivory); }
+.text-ivory { color: var(--ivory); }
+.text-mist { color: var(--mist); }
+.text-slash { color: var(--slash); }
+
+/* Spacing Utilities */
+.p-sm { padding: var(--space-2); }
+.p-md { padding: var(--space-4); }
+.p-lg { padding: var(--space-6); }
+.p-xl { padding: var(--space-8); }
+.mb-sm { margin-bottom: var(--space-2); }
+.mb-md { margin-bottom: var(--space-4); }
+.mb-lg { margin-bottom: var(--space-6); }
+.mt-lg { margin-top: var(--space-6); }
+.space-y-md > * + * { margin-top: var(--space-4); }
+.gap-sm { gap: var(--space-2); }
+
+/* Layout Utilities */
+.min-h-screen { min-height: 100vh; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.w-5 { width: 1.25rem; }
+.h-5 { height: 1.25rem; }
+
+/* Enhanced Cards with Bubblegum Styling */
+.card {
+  background: linear-gradient(135deg, var(--ivory) 0%, #f0f8ff 100%);
+  border: 3px solid var(--bubble-purple);
+  border-radius: 20px;
+  box-shadow:
+    0 10px 30px rgba(139, 92, 246, 0.3),
+    0 4px 15px rgba(255, 105, 180, 0.2);
+  color: var(--void);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg,
+    var(--bubble-pink),
+    var(--bubble-purple),
+    var(--bubble-blue),
+    var(--bubble-mint),
+    var(--bubble-pink)
+  );
+  background-size: 300% 300%;
+  animation: gradient-shift 6s ease infinite;
+  border-radius: 22px;
+  z-index: -1;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Bubblegum Buttons */
+.btn {
+  position: relative;
+  border: none;
+  border-radius: 25px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--bubble-purple), var(--bubble-pink));
+  color: white;
+  border: 2px solid transparent;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, var(--bubble-mint), var(--bubble-blue));
+  color: white;
+  border: 2px solid transparent;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+.btn-instagram {
+  background: linear-gradient(135deg, #E4405F, #FCAF45, #833AB4);
+  color: white;
+  border: 2px solid transparent;
+}
+
+.btn-instagram:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(228, 64, 95, 0.4);
+}
 
 .flex { display: flex; }
 .items-center { align-items: center; }

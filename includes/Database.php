@@ -53,8 +53,9 @@ class Database {
             'CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 oauth_provider TEXT NOT NULL DEFAULT "google",
-                oauth_id TEXT NOT NULL,
-                email TEXT NOT NULL,
+                oauth_id TEXT,
+                email TEXT,
+                phone_number TEXT,
                 name TEXT,
                 avatar_url TEXT,
                 credits_remaining INTEGER DEFAULT 0,
@@ -66,9 +67,21 @@ class Database {
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(oauth_provider, oauth_id),
-                UNIQUE(email)
+                UNIQUE(email),
+                UNIQUE(phone_number)
             )',
-            
+
+            // WhatsApp OTP authentication
+            'CREATE TABLE IF NOT EXISTS whatsapp_otps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                phone_number TEXT NOT NULL,
+                otp_code TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                verified INTEGER DEFAULT 0,
+                attempts INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )',
+
             // Credit transactions
             'CREATE TABLE IF NOT EXISTS credit_transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,6 +197,9 @@ class Database {
             'CREATE INDEX IF NOT EXISTS idx_generations_share_token ON generations(share_token)',
             'CREATE INDEX IF NOT EXISTS idx_generations_hash ON generations(input_hash)',
             'CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at)',
+            'CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)',
+            'CREATE INDEX IF NOT EXISTS idx_whatsapp_otps_phone ON whatsapp_otps(phone_number)',
+            'CREATE INDEX IF NOT EXISTS idx_whatsapp_otps_expires ON whatsapp_otps(expires_at)',
             'CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start)',
             'CREATE INDEX IF NOT EXISTS idx_background_jobs_user ON background_jobs(user_id)',
             'CREATE INDEX IF NOT EXISTS idx_background_jobs_status ON background_jobs(status)',
@@ -194,7 +210,13 @@ class Database {
         ];
         
         foreach ($indexes as $sql) {
-            self::$pdo->exec($sql);
+            try {
+                self::$pdo->exec($sql);
+            } catch (PDOException $e) {
+                // Ignore index creation errors (columns might not exist yet)
+                // They will be created by migration script
+                error_log('Index creation skipped: ' . $e->getMessage());
+            }
         }
     }
     

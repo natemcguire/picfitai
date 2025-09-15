@@ -447,10 +447,10 @@ $csrfToken = $user ? Session::generateCSRFToken() : '';
                     <div class="plan-card">
                         <div class="plan-name">Free Trial</div>
                         <div class="plan-price">$0</div>
-                        <div class="plan-credits">1 generation included</div>
+                        <div class="plan-credits">1 credit included</div>
                         <ul class="plan-features">
-                            <li>1 AI-generated outfit preview</li>
-                            <li>High-quality results</li>
+                            <li>2 public photos or 1 private photo</li>
+                            <li>High-quality AI outfit generation</li>
                             <li>No credit card required</li>
                         </ul>
                         <a href="/auth/login.php" class="btn btn-primary">
@@ -470,18 +470,19 @@ $csrfToken = $user ? Session::generateCSRFToken() : '';
 
                         <div class="plan-name"><?= htmlspecialchars($plan['name']) ?></div>
                         <div class="plan-price">$<?= number_format($plan['price'] / 100, 2) ?></div>
-                        <div class="plan-credits"><?= $plan['credits'] ?> generations</div>
+                        <div class="plan-credits"><?= $plan['credits'] ?> credits</div>
                         <div class="plan-per-credit">
-                            $<?= number_format($plan['price'] / 100 / $plan['credits'], 2) ?> per generation
+                            <?= $plan['credits'] * 2 ?> public photos or <?= $plan['credits'] ?> private photos
                         </div>
 
                         <ul class="plan-features">
-                            <li><?= $plan['credits'] ?> AI-generated outfit previews</li>
+                            <li><?= $plan['credits'] ?> credits for AI outfit generation</li>
+                            <li>2x photos if shared publicly (default)</li>
+                            <li>1x photos if kept private</li>
                             <li>High-quality results</li>
                             <li>Download & share images</li>
-                            <li>Priority processing</li>
                             <?php if ($key === 'pro'): ?>
-                                <li>Best value per generation</li>
+                                <li>Best value per photo</li>
                             <?php endif; ?>
                         </ul>
 
@@ -527,8 +528,8 @@ $csrfToken = $user ? Session::generateCSRFToken() : '';
                 </div>
 
                 <div class="faq-item">
-                    <h4>Is my data secure?</h4>
-                    <p>Yes, we take privacy seriously. Your photos are processed securely and are not shared with third parties. Generated images are stored securely and only accessible to you.</p>
+                    <h4>Are my photos public or private?</h4>
+                    <p>By default, all generated photos are public and shareable - it's all about having fun and showing off your style! This also gives you 2x more photos per credit. If you prefer privacy, you can always choose to make a generation private during upload, which uses 1 credit per photo.</p>
                 </div>
             </div>
         </div>
@@ -540,7 +541,6 @@ $csrfToken = $user ? Session::generateCSRFToken() : '';
             <div class="footer-links">
                 <a href="/privacy.php">Privacy</a>
                 <a href="/terms.php">Terms</a>
-                <a href="mailto:support@picfit.ai">Support</a>
             </div>
         </div>
     </div>

@@ -430,12 +430,12 @@ class AIService {
         return base64_encode($imageData);
     }
     
-    private function saveGeneratedImage(string $base64Data, string $mimeType): string {
+    public function saveGeneratedImage(string $base64Data, string $mimeType): string {
         $generatedDir = __DIR__ . '/../generated';
         if (!is_dir($generatedDir)) {
             @mkdir($generatedDir, 0755, true);
         }
-        
+
         // Determine file extension
         $extension = match($mimeType) {
             'image/jpeg' => 'jpg',
@@ -443,20 +443,181 @@ class AIService {
             'image/webp' => 'webp',
             default => 'jpg'
         };
-        
+
         $filename = uniqid('fit_', true) . '.' . $extension;
         $filepath = $generatedDir . '/' . $filename;
-        
+
+        // Decode image data
         $imageData = base64_decode($base64Data);
         if ($imageData === false) {
             throw new Exception('Invalid base64 image data');
         }
-        
-        if (file_put_contents($filepath, $imageData) === false) {
+
+        Logger::info('AIService - Watermarking image', [
+            'original_size' => strlen($imageData),
+            'mime_type' => $mimeType,
+            'filename' => $filename
+        ]);
+
+        // Apply watermark to all generated images
+        $watermarkedData = $this->addWatermark($imageData, $mimeType);
+
+        Logger::info('AIService - Watermark applied', [
+            'original_size' => strlen($imageData),
+            'watermarked_size' => strlen($watermarkedData),
+            'size_difference' => strlen($watermarkedData) - strlen($imageData)
+        ]);
+
+        if (file_put_contents($filepath, $watermarkedData) === false) {
             throw new Exception('Failed to save generated image');
         }
-        
+
         return $filename;
+    }
+
+    /**
+     * Add PicFit.ai watermark to bottom-right corner of image
+     * Uses Imagick for best quality, falls back to GD if Imagick unavailable
+     */
+    public function addWatermark(string $imageData, string $mimeType): string {
+        if (extension_loaded('imagick')) {
+            return $this->addWatermarkImagick($imageData, $mimeType);
+        } else {
+            return $this->addWatermarkGD($imageData, $mimeType);
+        }
+    }
+
+    /**
+     * Add watermark using Imagick (best quality, supports PNG alpha)
+     */
+    public function addWatermarkImagick(string $imageData, string $mimeType): string {
+        try {
+            $img = new Imagick();
+            $img->readImageBlob($imageData);
+
+            $imgWidth = $img->getImageWidth();
+            $imgHeight = $img->getImageHeight();
+
+            // Watermark configuration
+            $watermarkText = 'PicFit.ai';
+            $fontSize = max(14, $imgWidth * 0.035); // ~3.5% of width
+            $padding = 26;
+
+            // Create text watermark
+            $draw = new ImagickDraw();
+            $draw->setFillColor(new ImagickPixel('rgba(255,255,255,0.65)')); // white, 65% opacity
+
+            // Use default font for now (custom font can be added later if needed)
+            // Note: Custom fonts in Imagick can be finicky with file paths and permissions
+
+            $draw->setFontSize($fontSize);
+            $draw->setGravity(Imagick::GRAVITY_SOUTHEAST);
+
+            // Add text to image
+            $img->annotateImage($draw, -$padding, -$padding, 0, $watermarkText);
+
+            // Set compression quality
+            $img->setImageCompressionQuality(85);
+
+            // Get the watermarked image data
+            $watermarkedData = $img->getImageBlob();
+
+            $img->clear();
+            $draw->clear();
+
+            Logger::info('AIService - Watermark applied using Imagick', [
+                'original_size' => strlen($imageData),
+                'watermarked_size' => strlen($watermarkedData),
+                'method' => 'imagick',
+                'font_used' => $fontPath ? basename($fontPath) : 'default'
+            ]);
+
+            return $watermarkedData;
+
+        } catch (Exception $e) {
+            Logger::warning('AIService - Imagick watermark failed, falling back to GD', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->addWatermarkGD($imageData, $mimeType);
+        }
+    }
+
+    /**
+     * Add watermark using GD (fallback method)
+     */
+    private function addWatermarkGD(string $imageData, string $mimeType): string {
+        // Create image resource from data
+        $image = imagecreatefromstring($imageData);
+        if (!$image) {
+            throw new Exception('Failed to create image from data');
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+
+        // Watermark configuration
+        $watermarkText = 'PicFit.ai';
+        $fontSize = max(14, $width * 0.035); // ~3.5% of width
+        $padding = 26;
+
+        // Try to load custom font
+        $fontPath = __DIR__ . '/../public/fonts/Inter-Bold.ttf';
+        $useCustomFont = file_exists($fontPath);
+
+        if ($useCustomFont) {
+            // Calculate text dimensions with TTF font
+            $textBox = imagettfbbox($fontSize, 0, $fontPath, $watermarkText);
+            $textWidth = $textBox[2] - $textBox[0];
+            $textHeight = $textBox[1] - $textBox[7];
+        } else {
+            // Fallback to built-in font
+            $fontSize = 5; // Built-in font size (1-5)
+            $textWidth = imagefontwidth($fontSize) * strlen($watermarkText);
+            $textHeight = imagefontheight($fontSize);
+        }
+
+        // Position in bottom-right corner
+        $x = $width - $textWidth - $padding;
+        $y = $height - $padding;
+
+        // Add white text with transparency (alpha: 0 = opaque, 127 = transparent)
+        $textColor = imagecolorallocatealpha($image, 255, 255, 255, 45); // white with 65% opacity
+
+        if ($useCustomFont) {
+            imagettftext($image, $fontSize, 0, $x, $y, $textColor, $fontPath, $watermarkText);
+        } else {
+            imagestring($image, $fontSize, $x, $y - $textHeight, $watermarkText, $textColor);
+        }
+
+        // Convert back to binary data
+        ob_start();
+        switch ($mimeType) {
+            case 'image/png':
+                imagepng($image, null, 9); // Max compression
+                break;
+            case 'image/webp':
+                if (function_exists('imagewebp')) {
+                    imagewebp($image, null, 80);
+                } else {
+                    imagejpeg($image, null, 85); // Fallback to JPEG
+                }
+                break;
+            default:
+                imagejpeg($image, null, 85); // Good quality JPEG
+                break;
+        }
+        $watermarkedData = ob_get_contents();
+        ob_end_clean();
+
+        imagedestroy($image);
+
+        Logger::info('AIService - Watermark applied using GD', [
+            'original_size' => strlen($imageData),
+            'watermarked_size' => strlen($watermarkedData),
+            'method' => 'gd'
+        ]);
+
+        return $watermarkedData;
     }
     
     private function getGenerationPrompt(string $outfitType = 'clothing_only'): string {

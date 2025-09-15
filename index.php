@@ -1,10 +1,29 @@
 <?php
-// index.php - Landing page
+// index.php - Landing page with recent generations
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 
 $user = Session::getCurrentUser();
+
+// Get the most recent public generations for display
+$pdo = Database::getInstance();
+$stmt = $pdo->prepare('
+    SELECT share_token, result_url, created_at
+    FROM generations
+    WHERE status = "completed"
+    AND is_public = 1
+    AND share_token IS NOT NULL
+    AND result_url IS NOT NULL
+    ORDER BY completed_at DESC
+    LIMIT 10
+');
+$stmt->execute();
+$recentGenerations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get the most recent (featured) and second most recent for navigation
+$featuredGeneration = $recentGenerations[0] ?? null;
+$previousGeneration = $recentGenerations[1] ?? null;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -13,7 +32,51 @@ $user = Session::getCurrentUser();
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>PicFit.ai - AI Virtual Try-On</title>
     <meta name="description" content="Try on outfits virtually with AI. Upload your photos and see how clothes look on you before buying.">
+
+    <!-- Open Graph (good for Facebook, WhatsApp, LinkedIn, etc.) -->
+    <meta property="og:title" content="PicFit – Try on outfits with AI" />
+    <meta property="og:description" content="Upload a photo and instantly see outfits styled on you." />
+    <?php if ($featuredGeneration && $featuredGeneration['share_token']): ?>
+    <meta property="og:image" content="https://picfit.ai/api/whatsapp_image.php?token=<?= urlencode($featuredGeneration['share_token']) ?>" />
+    <?php else: ?>
+    <meta property="og:image" content="https://picfit.ai/images/og-default.jpg" />
+    <?php endif; ?>
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="1200" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:url" content="https://picfit.ai/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PicFit.ai" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PicFit – Try on outfits with AI" />
+    <meta name="twitter:description" content="Upload a photo and instantly see outfits styled on you." />
+    <?php if ($featuredGeneration && $featuredGeneration['share_token']): ?>
+    <meta name="twitter:image" content="https://picfit.ai/api/twitter_image.php?token=<?= urlencode($featuredGeneration['share_token']) ?>" />
+    <meta name="twitter:image:src" content="https://picfit.ai/api/twitter_image.php?token=<?= urlencode($featuredGeneration['share_token']) ?>" />
+    <?php else: ?>
+    <meta name="twitter:image" content="https://picfit.ai/images/og-default.jpg" />
+    <meta name="twitter:image:src" content="https://picfit.ai/images/og-default.jpg" />
+    <?php endif; ?>
+    <meta name="twitter:image:alt" content="AI-generated virtual try-on result" />
+    <meta name="twitter:image:width" content="1200" />
+    <meta name="twitter:image:height" content="630" />
+    <meta name="twitter:site" content="@PicFitAI" />
+
+    <!-- Additional meta tags for better sharing -->
+    <link rel="canonical" href="https://picfit.ai/" />
+
+    <!-- WhatsApp-specific optimizations -->
+    <?php if ($featuredGeneration && $featuredGeneration['share_token']): ?>
+    <meta property="og:image:secure_url" content="https://picfit.ai/api/whatsapp_image.php?token=<?= urlencode($featuredGeneration['share_token']) ?>" />
+    <?php endif; ?>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
         * {
             margin: 0;
             padding: 0;
@@ -25,533 +88,338 @@ $user = Session::getCurrentUser();
             background: linear-gradient(135deg, #ffeef8 0%, #ffe0f7 100%);
             min-height: 100vh;
             color: #333;
-            line-height: 1.6;
+            overflow-x: hidden;
         }
 
-        .container {
-            max-width: 1200px;
+        /* Container with iPad-like fixed width on desktop */
+        .main-container {
+            max-width: 768px;
             margin: 0 auto;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #ffeef8 0%, #ffe0f7 100%);
+            position: relative;
+        }
+
+        /* Mobile view - full width */
+        @media (max-width: 768px) {
+            .main-container {
+                max-width: 100%;
+            }
+        }
+
+        /* Gallery Background */
+        .gallery-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
+            opacity: 0.3;
+            pointer-events: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 20px;
+            align-content: flex-start;
+            overflow: hidden;
+        }
+
+        .gallery-item {
+            width: 200px;
+            height: 300px;
+            border-radius: 15px;
+            object-fit: cover;
+            filter: blur(2px) grayscale(30%);
+            transform: rotate(-5deg);
+        }
+
+        .gallery-item:nth-child(even) {
+            transform: rotate(3deg);
+        }
+
+        .gallery-item:nth-child(3n) {
+            transform: rotate(-2deg);
+        }
+
+        /* Main Content */
+        .main-content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            margin-bottom: 100px;
+        }
+
+        /* Featured Photo */
+        .featured-container {
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .featured-container:hover {
+            transform: scale(1.02);
+        }
+
+        .featured-photo {
+            background: white;
+            padding: 20px 20px 60px 20px;
+            border-radius: 20px;
+            box-shadow:
+                0 0 0 3px rgba(255, 255, 255, 0.8),
+                0 0 0 6px rgba(255, 182, 193, 0.4),
+                0 8px 32px rgba(255, 107, 157, 0.3),
+                0 16px 64px rgba(255, 107, 157, 0.2);
+            transform: rotate(-1deg);
+            max-width: 400px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .featured-photo img {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .rate-button {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(45deg, #ff6b9d, #ff8fab);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(255, 107, 157, 0.3);
+        }
+
+        .rate-button:hover {
+            transform: translateX(-50%) translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+            background: linear-gradient(45deg, #ff8fab, #ffafc9);
+        }
+
+        /* Title */
+        .title {
+            position: relative;
+            text-align: center;
+            z-index: 15;
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto 40px auto;
             padding: 0 20px;
         }
 
+        .title h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            font-family: 'Fredoka One', cursive;
+            background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 4px 8px rgba(255, 107, 157, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .title p {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 2rem;
+        }
 
         .btn {
             display: inline-block;
-            padding: 0.75rem 1.5rem;
-            border-radius: 25px;
+            padding: 1rem 2rem;
+            border-radius: 30px;
             text-decoration: none;
             font-weight: 600;
             transition: all 0.3s ease;
             border: none;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 1.1rem;
+            margin: 0 10px;
         }
 
         .btn-primary {
-            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            background: linear-gradient(45deg, #ff6b9d, #ff8fab);
             color: white;
-            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.6);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(255, 107, 157, 0.6);
         }
 
         .btn-secondary {
-            background: rgba(0, 0, 0, 0.15);
-            color: #333;
-            border: 1px solid rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(10px);
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4);
         }
 
         .btn-secondary:hover {
-            background: rgba(0, 0, 0, 0.25);
-            color: #000;
-            transform: translateY(-2px);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(78, 205, 196, 0.6);
         }
 
-
-        /* Polaroid Photo Section */
-        .polaroid-showcase {
-            padding: 4rem 0;
-            text-align: center;
-        }
-
-        .polaroid-container {
-            position: relative;
-            max-width: 400px;
-            width: 100%;
-            margin: 0 auto;
-        }
-
-        .polaroid {
-            background: linear-gradient(145deg, #fff 0%, #fefefe 100%);
-            padding: 20px 20px 60px 20px;
-            box-shadow:
-                0 0 0 3px rgba(255, 255, 255, 0.8),
-                0 0 0 6px rgba(255, 182, 193, 0.4),
-                0 0 0 9px rgba(255, 218, 185, 0.3),
-                0 0 0 12px rgba(255, 255, 186, 0.2),
-                0 8px 32px rgba(255, 107, 157, 0.3),
-                0 16px 64px rgba(255, 107, 157, 0.2),
-                0 0 80px rgba(255, 182, 193, 0.1);
-            transform: rotate(-2deg) translateY(-10px);
-            position: relative;
-            border-radius: 15px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            background-image:
-                radial-gradient(circle at 20% 20%, rgba(255, 182, 193, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(173, 216, 230, 0.1) 0%, transparent 50%);
-        }
-
-        .polaroid::before {
-            content: '';
-            position: absolute;
-            bottom: -50px;
-            left: 5%;
-            right: 5%;
-            height: 50px;
-            background: radial-gradient(ellipse at center,
-                rgba(255, 107, 157, 0.3) 0%,
-                rgba(255, 107, 157, 0.1) 40%,
-                transparent 70%);
-            filter: blur(30px);
-            z-index: -1;
-        }
-
-        .polaroid:hover {
-            transform: rotate(1deg) scale(1.03) translateY(-20px);
-            box-shadow:
-                0 0 0 3px rgba(255, 255, 255, 0.9),
-                0 0 0 6px rgba(255, 182, 193, 0.6),
-                0 0 0 9px rgba(255, 218, 185, 0.5),
-                0 0 0 12px rgba(255, 255, 186, 0.4),
-                0 12px 48px rgba(255, 107, 157, 0.4),
-                0 24px 96px rgba(255, 107, 157, 0.3),
-                0 0 120px rgba(255, 182, 193, 0.2);
-        }
-
-        .photo-frame {
-            width: 100%;
-            height: 300px;
-            background: #f8f8f8;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .photo {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            object-position: center 30%;
-            transition: all 0.3s ease;
-        }
-
-        .caption {
-            position: absolute;
-            bottom: 15px;
-            left: 25px;
-            font-family: 'Courier New', monospace;
-            font-size: 16px;
-            color: #333;
-            font-weight: bold;
-            text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
-        }
-
+        /* Mobile Responsive */
         @media (max-width: 768px) {
-            .polaroid-container {
-                max-width: 300px;
-            }
-            .polaroid {
-                padding: 15px 15px 45px 15px;
-            }
-            .photo-frame {
-                height: 250px;
-            }
-        }
-
-        .btn-lg {
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
-        }
-
-        .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        .nav-link:hover {
-            color: white;
-        }
-
-        /* Hero Section */
-        .hero {
-            padding: 6rem 0;
-            text-align: center;
-        }
-
-        .hero-title {
-            font-size: 3.5rem;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 1.5rem;
-            line-height: 1.2;
-        }
-
-        .text-gradient {
-            background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .hero-description {
-            font-size: 1.3rem;
-            color: #666;
-            margin-bottom: 3rem;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .hero-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        /* Sections */
-        .section {
-            padding: 4rem 0;
-        }
-
-        .section-alt {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .section-title {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #333;
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-
-        .grid {
-            display: grid;
-            gap: 2rem;
-            margin-top: 2rem;
-        }
-
-        .grid-2 {
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        }
-
-        .grid-3 {
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        }
-
-        .card {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            padding: 2rem;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .card-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            display: block;
-        }
-
-        .card h3 {
-            font-size: 1.5rem;
-            color: #333;
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-
-        .card p {
-            color: #666;
-            line-height: 1.6;
-        }
-
-        /* Features */
-        .feature-icon {
-            font-size: 2rem;
-            margin-right: 0.5rem;
-        }
-
-        /* CTA */
-        .cta-section {
-            padding: 5rem 0;
-            text-align: center;
-        }
-
-        .text-xl {
-            font-size: 1.25rem;
-        }
-
-        .text-muted {
-            color: #666;
-        }
-
-        .mb-lg {
-            margin-bottom: 2rem;
-        }
-
-        .flex {
-            display: flex;
-        }
-
-        .justify-center {
-            justify-content: center;
-        }
-
-        .gap-md {
-            gap: 1rem;
-        }
-
-        /* Footer */
-        .footer {
-            background: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 3rem 0;
-            margin-top: 4rem;
-        }
-
-        .footer-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 2rem;
-        }
-
-        .footer-brand {
-            color: white;
-        }
-
-        .footer-brand .text-xl {
-            font-size: 1.25rem;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
-        }
-
-        .footer-links {
-            display: flex;
-            gap: 2rem;
-        }
-
-        .footer-link {
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        .footer-link:hover {
-            color: white;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .hero-title {
-                font-size: 2.5rem;
+            .main-container {
+                padding: 0;
             }
 
-            .hero-description {
-                font-size: 1.1rem;
+            .title {
+                margin: 10px auto 30px auto;
+                padding: 0 15px;
             }
 
-            .section-title {
-                font-size: 2rem;
+            .title h1 {
+                font-size: 2.2rem;
+                margin-bottom: 10px;
             }
 
-            .nav-links {
-                flex-wrap: wrap;
-                gap: 0.5rem;
+            .title p {
+                font-size: 1rem;
+                margin-bottom: 20px;
             }
 
-            .hero-actions {
-                flex-direction: column;
-                align-items: center;
+            .main-content {
+                padding: 1rem;
+                margin-bottom: 60px;
             }
 
-            .footer-content {
-                flex-direction: column;
-                text-align: center;
+            .featured-photo {
+                max-width: 280px;
+                padding: 12px 12px 40px 12px;
+                margin: 0 auto;
             }
 
-            .grid-3 {
-                grid-template-columns: 1fr;
+            .featured-photo img {
+                height: 320px;
             }
-        }
 
-        .text-muted.hidden {
-            display: none;
-        }
+            .rate-button {
+                bottom: 8px;
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
 
-        @media (min-width: 640px) {
-            .text-muted.hidden.sm\\:inline {
-                display: inline;
+            .gallery-item {
+                width: 120px;
+                height: 180px;
+            }
+
+            .btn {
+                padding: 0.8rem 1.2rem;
+                font-size: 0.9rem;
+                margin: 8px 5px;
+                display: inline-block;
+                max-width: 160px;
+            }
+
+            /* Fix footer spacing on mobile */
+            footer {
+                bottom: 10px !important;
+            }
+
+            footer p {
+                font-size: 0.8rem !important;
+                padding: 8px 15px !important;
             }
         }
     </style>
 </head>
 <body>
-    <?php include __DIR__ . '/includes/nav.php'; ?>
+    <div class="main-container">
+        <?php include __DIR__ . '/includes/nav.php'; ?>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="container">
-            <div class="hero-content">
-                <h1 class="hero-title">
-                    Try On Outfits<br>
-                    <span class="text-gradient">With AI</span>
-                </h1>
-                <p class="hero-description">
-                    Upload your photos and see how clothes look on you before buying. 
-                    Powered by advanced AI technology.
-                </p>
-                <div class="hero-actions">
-                    <?php if ($user): ?>
-                        <a href="/generate.php" class="btn btn-primary btn-lg">
-                            ✨ Generate Your Fit
-                        </a>
-                    <?php else: ?>
-                        <a href="/auth/login.php" class="btn btn-primary btn-lg">
-                            Get Started Free
-                        </a>
-                    <?php endif; ?>
-                    <a href="/pricing.php" class="btn btn-secondary btn-lg">
-                        View Pricing
-                    </a>
-                </div>
-            </div>
+        <!-- Gallery Background -->
+        <div class="gallery-background">
+            <?php
+            // Repeat the first 10 recent generations multiple times to fill the background
+            $backgroundImages = array_slice($recentGenerations, 1);
+            if (count($backgroundImages) > 0) {
+                // Repeat images to get at least 40 total for good coverage
+                $repeatedImages = [];
+                while (count($repeatedImages) < 40) {
+                    foreach ($backgroundImages as $gen) {
+                        $repeatedImages[] = $gen;
+                        if (count($repeatedImages) >= 40) break;
+                    }
+                }
+
+                foreach ($repeatedImages as $gen):
+            ?>
+                <img src="<?= htmlspecialchars($gen['result_url']) ?>" alt="Generated outfit" class="gallery-item" />
+            <?php
+                endforeach;
+            }
+            ?>
         </div>
-    </section>
 
-    <!-- Polaroid Photo Showcase -->
-    <section class="polaroid-showcase">
-        <div class="container">
-            <div class="polaroid-container">
-                <div class="polaroid">
-                    <div class="photo-frame">
-			<img src="/images/outfits/outfit.png" alt="AI Virtual Try-On Example" class="photo">
-                    </div>
-                    <div class="caption">
-                        AI Virtual Try-On Magic ✨
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- How It Works -->
-    <section class="section">
-        <div class="container">
-            <h2 class="section-title">How It Works</h2>
-            <div class="grid grid-3">
-                <div class="card text-center">
-                    <div class="text-4xl mb-md">📸</div>
-                    <h3 class="h3 mb-sm">Upload Photos</h3>
-                    <p class="text-muted">Upload 3-10 clear photos of yourself and a flat-lay photo of the outfit.</p>
-                </div>
-                <div class="card text-center">
-                    <div class="text-4xl mb-md">🤖</div>
-                    <h3 class="h3 mb-sm">AI Processing</h3>
-                    <p class="text-muted">Our AI analyzes your photos and creates a realistic virtual try-on.</p>
-                </div>
-                <div class="card text-center">
-                    <div class="text-4xl mb-md">✨</div>
-                    <h3 class="h3 mb-sm">See Results</h3>
-                    <p class="text-muted">Get a high-quality image showing how the outfit looks on you.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Features -->
-    <section class="section section-alt">
-        <div class="container">
-            <h2 class="section-title">Why Choose PicFit.ai?</h2>
-            <div class="grid grid-2">
-                <div class="card">
-                    <h3 class="h3 mb-sm">🎯 Accurate Results</h3>
-                    <p class="text-muted">Advanced AI technology ensures realistic and accurate virtual try-ons.</p>
-                </div>
-                <div class="card">
-                    <h3 class="h3 mb-sm">⚡ Fast Processing</h3>
-                    <p class="text-muted">Get your results in under 60 seconds with our optimized AI models.</p>
-                </div>
-                <div class="card">
-                    <h3 class="h3 mb-sm">🔒 Privacy First</h3>
-                    <p class="text-muted">Your photos are processed securely and never shared with third parties.</p>
-                </div>
-                <div class="card">
-                    <h3 class="h3 mb-sm">💳 Fair Pricing</h3>
-                    <p class="text-muted">Pay only for what you use. No subscriptions, no hidden fees.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="section">
-        <div class="container text-center">
-            <h2 class="section-title">Ready to Try It?</h2>
-            <p class="text-xl text-muted mb-lg">
-                Join thousands of users who are already using AI to find their perfect fit.
-            </p>
-            <div class="flex justify-center gap-md">
+        <!-- Title -->
+        <div class="title">
+            <h1>PicFit.ai</h1>
+            <p>Try on outfits with AI</p>
+            <div>
                 <?php if ($user): ?>
-                    <a href="/generate.php" class="btn btn-primary btn-lg">
-                        Start Generating
-                    </a>
+                    <a href="/generate.php" class="btn btn-primary">Start Generating</a>
+                    <a href="/dashboard.php" class="btn btn-secondary">Dashboard</a>
                 <?php else: ?>
-                    <a href="/auth/login.php" class="btn btn-primary btn-lg">
-                        Get Started Free
-                    </a>
+                    <a href="/auth/login.php" class="btn btn-primary">Get Started</a>
+                    <a href="/pricing.php" class="btn btn-secondary">Pricing</a>
                 <?php endif; ?>
-                <a href="/pricing.php" class="btn btn-secondary btn-lg">
-                    View Pricing
-                </a>
             </div>
         </div>
-    </section>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <div class="text-xl font-bold mb-sm">PicFit.ai</div>
-                    <p class="text-muted">AI-powered virtual try-on technology</p>
+        <!-- Main Featured Photo -->
+        <div class="main-content">
+            <?php if ($featuredGeneration): ?>
+                <div class="featured-container" onclick="navigateToFeatured()">
+                    <div class="featured-photo">
+                        <img src="<?= htmlspecialchars($featuredGeneration['result_url']) ?>" alt="Latest AI-generated outfit" />
+                        <button class="rate-button" onclick="event.stopPropagation(); navigateToFeatured();">Rate This Fit</button>
+                    </div>
                 </div>
-                <div class="footer-links">
-                    <a href="/privacy.php" class="footer-link">Privacy</a>
-                    <a href="/terms.php" class="footer-link">Terms</a>
-                    <a href="mailto:support@picfit.ai" class="footer-link">Support</a>
+            <?php else: ?>
+                <div class="featured-container" onclick="window.location.href='/generate.php'">
+                    <div class="featured-photo">
+                        <div style="height: 400px; display: flex; align-items: center; justify-content: center; color: #999;">
+                            No generations yet - be the first!
+                        </div>
+                        <button class="rate-button" onclick="event.stopPropagation(); window.location.href='/generate.php';">Start Generating</button>
+                    </div>
                 </div>
-            </div>
+            <?php endif; ?>
         </div>
-    </footer>
+
+        <!-- Simple Footer -->
+        <footer style="position: absolute; bottom: 20px; width: 100%; text-align: center; z-index: 20;">
+            <p style="color: #666; font-size: 0.9rem; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; border-radius: 20px; display: inline-block; backdrop-filter: blur(10px);">
+                It's just fun ya'll
+            </p>
+        </footer>
+    </div></body>
+
+    <script>
+        function navigateToFeatured() {
+            <?php if ($featuredGeneration): ?>
+                window.location.href = '/share/<?= htmlspecialchars($featuredGeneration['share_token']) ?>';
+            <?php else: ?>
+                window.location.href = '/generate.php';
+            <?php endif; ?>
+        }
+    </script>
 </body>
 </html>

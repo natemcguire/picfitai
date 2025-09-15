@@ -204,22 +204,26 @@ foreach ($userPhotos as &$photo) {
         }
 
         .btn-primary {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            background: linear-gradient(45deg, #ff6b9d 0%, #ff8fab 50%, #ff6b9d 100%);
             color: white;
+            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.3);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 8px 25px rgba(255, 107, 157, 0.4);
+            background: linear-gradient(45deg, #ff8fab 0%, #ffafc9 50%, #ff8fab 100%);
         }
 
         .btn-secondary {
-            background: #f39c12;
+            background: linear-gradient(45deg, #4ecdc4 0%, #44a08d 50%, #4ecdc4 100%);
             color: white;
+            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.3);
         }
 
         .btn-secondary:hover {
-            background: #e67e22;
+            background: linear-gradient(45deg, #5fd8cf 0%, #4ecdc4 50%, #5fd8cf 100%);
+            box-shadow: 0 8px 25px rgba(78, 205, 196, 0.4);
             transform: translateY(-2px);
         }
 
@@ -709,8 +713,8 @@ foreach ($userPhotos as &$photo) {
             }
 
             .header-nav {
-                flex-direction: column;
-                text-align: center;
+                flex-direction: row;
+                justify-content: space-between;
             }
 
             .generation-item {
@@ -785,7 +789,7 @@ foreach ($userPhotos as &$photo) {
             left: 15px;
             right: 15px;
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
             z-index: 1000;
             background: rgba(255, 255, 255, 0.95);
@@ -843,15 +847,19 @@ foreach ($userPhotos as &$photo) {
             color: #495057;
         }
 
-        .credits-badge {
-            background: linear-gradient(45deg, #ffd93d, #ffb73d);
-            color: white;
+        .logout-link a {
+            color: #6c757d;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
             padding: 8px 16px;
             border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-            box-shadow: 0 2px 8px rgba(255, 183, 61, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .logout-link a:hover {
+            color: #495057;
+            background: rgba(108, 117, 125, 0.1);
         }
 
         body {
@@ -863,21 +871,29 @@ foreach ($userPhotos as &$photo) {
                 top: 10px;
                 left: 10px;
                 right: 10px;
-                padding: 10px 15px;
+                padding: 8px 15px;
+                justify-content: space-between;
             }
 
             .nav-buttons {
-                gap: 8px;
+                gap: 6px;
+                flex: 0 0 auto;
             }
 
             .nav-btn {
-                padding: 6px 12px;
-                font-size: 12px;
+                padding: 10px 20px;
+                font-size: 13px;
+                min-width: auto;
             }
 
-            .credits-badge {
-                padding: 6px 12px;
+            .logout-link {
+                flex: 0 0 auto;
+            }
+
+            .logout-link a {
+                padding: 10px 15px;
                 font-size: 12px;
+                white-space: nowrap;
             }
 
             body {
@@ -888,13 +904,10 @@ foreach ($userPhotos as &$photo) {
 
     <div class="header-nav">
         <div class="nav-buttons">
-            <div class="credits-badge">
-                💎 <?= number_format($user['credits_remaining'], ($user['credits_remaining'] == floor($user['credits_remaining'])) ? 0 : 1) ?> Credits
-            </div>
             <a href="/generate.php" class="nav-btn">Generate</a>
-            <a href="/pricing.php" class="nav-btn secondary">Get Credits</a>
-            <a href="/" class="nav-btn tertiary">Home</a>
-            <a href="/auth/logout.php" class="nav-btn tertiary">Logout</a>
+        </div>
+        <div class="logout-link">
+            <a href="/auth/logout.php">Logout</a>
         </div>
     </div>
 

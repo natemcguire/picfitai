@@ -1,2 +1,30 @@
 # Allow access to generated images
 Options -Indexes
+
+# Enable CORS for social media crawlers
+<IfModule mod_headers.c>
+    # Allow all origins to access images (needed for social media)
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, OPTIONS"
+    Header set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept"
+
+    # Cache control for images
+    Header set Cache-Control "public, max-age=31536000"
+
+    # Security headers
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# Set proper MIME types
+<IfModule mod_mime.c>
+    AddType image/png .png
+    AddType image/jpeg .jpg
+    AddType image/jpeg .jpeg
+    AddType image/webp .webp
+</IfModule>
+
+# Enable compression for faster loading
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>

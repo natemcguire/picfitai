@@ -8,6 +8,32 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 $user = Session::getCurrentUser();
+
+// Get most recent public share for "See Fits" button
+$mostRecentShareUrl = null;
+if ($user) {
+    try {
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare('
+            SELECT share_token
+            FROM generations
+            WHERE user_id = ?
+            AND status = "completed"
+            AND is_public = 1
+            AND share_token IS NOT NULL
+            ORDER BY completed_at DESC
+            LIMIT 1
+        ');
+        $stmt->execute([$user['id']]);
+        $shareToken = $stmt->fetchColumn();
+
+        if ($shareToken) {
+            $mostRecentShareUrl = '/share/' . $shareToken;
+        }
+    } catch (Exception $e) {
+        // Silently fail - just won't show the button
+    }
+}
 ?>
 
 <style>
@@ -15,9 +41,9 @@ $user = Session::getCurrentUser();
 
     .header-nav {
         position: fixed;
-        top: 25px;
-        left: 25px;
-        right: 25px;
+        top: 15px;
+        left: 20px;
+        right: 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -25,7 +51,7 @@ $user = Session::getCurrentUser();
         background: rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(20px);
         border-radius: 20px;
-        padding: 15px 25px;
+        padding: 10px 20px;
         border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
@@ -109,32 +135,38 @@ $user = Session::getCurrentUser();
 
     @media (max-width: 768px) {
         .header-nav {
-            top: 15px;
-            left: 15px;
-            right: 15px;
-            padding: 12px 20px;
-            flex-wrap: wrap;
-            gap: 15px;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            padding: 10px 12px;
         }
 
         .logo {
-            font-size: 24px;
+            font-size: 18px;
         }
 
         .nav-buttons {
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 100%;
+            gap: 6px;
         }
 
         .nav-btn {
-            padding: 10px 20px;
-            font-size: 13px;
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .logo {
+            font-size: 16px;
         }
 
-        .credits-badge {
-            padding: 8px 16px;
-            font-size: 13px;
+        .nav-btn {
+            padding: 5px 10px;
+            font-size: 10px;
+        }
+
+        .nav-buttons {
+            gap: 4px;
         }
     }
 </style>
@@ -143,13 +175,11 @@ $user = Session::getCurrentUser();
     <a href="/" class="logo">PicFit.ai</a>
     <div class="nav-buttons">
         <?php if ($user): ?>
-            <div class="credits-badge">
-                💎 <?= number_format($user['credits_remaining'], ($user['credits_remaining'] == floor($user['credits_remaining'])) ? 0 : 1) ?> Credits
-            </div>
             <a href="/dashboard.php" class="nav-btn secondary">Dashboard</a>
             <a href="/generate.php" class="nav-btn">Generate</a>
-            <a href="/pricing.php" class="nav-btn tertiary">Get Credits</a>
-            <a href="/auth/logout.php" class="nav-btn tertiary">Logout</a>
+            <?php if ($mostRecentShareUrl): ?>
+                <a href="<?= htmlspecialchars($mostRecentShareUrl) ?>" class="nav-btn tertiary">See Fits</a>
+            <?php endif; ?>
         <?php else: ?>
             <a href="/pricing.php" class="nav-btn secondary">Pricing</a>
             <a href="/auth/login.php" class="nav-btn">Get Started</a>

@@ -192,7 +192,7 @@ $csrfToken = Session::generateCSRFToken();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Virtual Try-On - <?= Config::get('app_name') ?></title>
+    <title>Check Your Fit - <?= Config::get('app_name') ?></title>
 
     <?php
     // Preload first 4 outfit images for faster rendering
@@ -226,8 +226,31 @@ $csrfToken = Session::generateCSRFToken();
             overflow: hidden;
         }
 
+        .page-header {
+            background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+
+        .page-header h1 {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .page-header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.3;
+            font-weight: 400;
+        }
+
         .form-container {
-            padding: 40px 20px;
+            padding: 40px 30px;
         }
 
         /* New Selection System Styles */
@@ -260,7 +283,7 @@ $csrfToken = Session::generateCSRFToken();
         .tab-button {
             flex: 1;
             padding: 12px 20px;
-            border: none;
+            border: 3px solid #667eea;
             background: transparent;
             color: #6c757d;
             font-size: 1em;
@@ -273,6 +296,7 @@ $csrfToken = Session::generateCSRFToken();
         .tab-button.active {
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
+            border: 3px solid #4a5cb8;
         }
 
         .tab-content {
@@ -473,9 +497,73 @@ $csrfToken = Session::generateCSRFToken();
             line-height: 1.4;
         }
 
-        /* Generate Button */
-        .generate-btn {
+        /* Fixed Bottom Section */
+        .bottom-section {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e9ecef;
+            padding: 20px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        /* Credits Summary in main content */
+        .credits-summary {
+            margin-top: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+        }
+
+        .credits-summary h4 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 1.1em;
+            text-align: center;
+        }
+
+        .credits-summary table {
             width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95em;
+        }
+
+        .credits-summary td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .credits-summary td:first-child {
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .credits-summary td:last-child {
+            text-align: right;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .credits-summary .remaining-row td {
+            border-bottom: none;
+            padding-top: 15px;
+            font-size: 1.1em;
+        }
+
+        .credits-summary .remaining-row td:last-child {
+            color: #27ae60;
+        }
+
+        /* Fixed Generate Button */
+        .generate-btn-fixed {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            display: block;
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
             border: none;
@@ -484,18 +572,30 @@ $csrfToken = Session::generateCSRFToken();
             font-weight: bold;
             border-radius: 50px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 30px;
+            transition: all 0.15s ease;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
         }
 
-        .generate-btn:hover:not(:disabled) {
+        .generate-btn-fixed:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
         }
 
-        .generate-btn:disabled {
+        .generate-btn-fixed:active:not(:disabled) {
+            transform: translateY(1px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+            background: linear-gradient(45deg, #5a6fd8, #6a42a0);
+            border: 4px solid #4a5cb8;
+        }
+
+        .generate-btn-fixed:disabled {
             opacity: 0.6;
             cursor: not-allowed;
+        }
+
+        /* Add bottom padding to main content to account for fixed section */
+        .container {
+            margin-bottom: 120px;
         }
 
         .view-all-btn {
@@ -518,33 +618,68 @@ $csrfToken = Session::generateCSRFToken();
             background: linear-gradient(45deg, #5fd8cf, #4ecdc4);
         }
 
-        /* Status Messages */
+        /* Floating Status Messages */
         .status-message {
-            padding: 15px 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-weight: 500;
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 25px;
+            border-radius: 15px;
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 10px;
+            z-index: 9999;
+            max-width: 90%;
+            width: auto;
+            min-width: 300px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateX(-50%) translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
         }
 
         .status-message.error {
-            background: #fee;
+            background: rgba(254, 226, 226, 0.95);
             color: #c53030;
-            border: 1px solid #fed7d7;
+            border: 2px solid #fed7d7;
         }
 
         .status-message.success {
-            background: #f0fff4;
+            background: rgba(240, 255, 244, 0.95);
             color: #22543d;
-            border: 1px solid #c6f6d5;
+            border: 2px solid #c6f6d5;
         }
 
         .status-message.info {
-            background: #e3f2fd;
+            background: rgba(227, 242, 253, 0.95);
             color: #1976d2;
-            border: 1px solid #90caf9;
+            border: 2px solid #90caf9;
+        }
+
+        .status-message .close-btn {
+            margin-left: 10px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .status-message .close-btn:hover {
+            opacity: 1;
         }
 
         /* Loading State */
@@ -624,21 +759,62 @@ $csrfToken = Session::generateCSRFToken();
             animation: fadeIn 0.5s ease;
         }
 
+        .result-preview {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .result-preview img {
+            max-width: 250px;
+            max-height: 300px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease;
+        }
+
+        .result-preview img:hover {
+            transform: scale(1.02);
+        }
+
+        .success-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .see-full-size-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .see-full-size-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
         .generate-another-btn {
             background: linear-gradient(45deg, #4ecdc4, #44a08d);
             color: white;
             border: none;
-            padding: 12px 30px;
+            padding: 12px 25px;
             border-radius: 25px;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 20px;
             transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
         }
 
         .generate-another-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(78, 205, 196, 0.4);
+            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4);
         }
 
         /* Responsive Design */
@@ -647,6 +823,7 @@ $csrfToken = Session::generateCSRFToken();
                 margin: 0;
                 border-radius: 0;
                 min-height: 100vh;
+                margin-bottom: 100px;
             }
 
             .selection-grid {
@@ -661,6 +838,24 @@ $csrfToken = Session::generateCSRFToken();
             .tab-button {
                 width: 100%;
             }
+
+            .bottom-section {
+                padding: 15px;
+            }
+
+            .generate-btn-fixed {
+                font-size: 1.1em;
+                padding: 16px 25px;
+            }
+
+            .credits-summary {
+                padding: 15px;
+                margin-top: 20px;
+            }
+
+            .credits-summary table {
+                font-size: 0.9em;
+            }
         }
     </style>
 </head>
@@ -668,9 +863,9 @@ $csrfToken = Session::generateCSRFToken();
     <?php include __DIR__ . '/includes/nav.php'; ?>
 
     <div class="container">
-        <div style="background: linear-gradient(45deg, #ff6b9d, #4ecdc4); color: white; padding: 30px 20px; text-align: center; border-radius: 15px; margin-bottom: 20px;">
-            <h1 style="font-size: 2em; margin-bottom: 10px;">AI Virtual Try-On</h1>
-            <p style="opacity: 0.9;">Transform your style with AI - upload photos and see how outfits look on you!</p>
+        <div class="page-header">
+            <h1>Check Your Fit</h1>
+            <p>Try on outfits from anywhere or anyone - on you, right now</p>
         </div>
 
         <div class="form-container">
@@ -736,12 +931,12 @@ $csrfToken = Session::generateCSRFToken();
                     <h3>👕 Step 2: Choose Your Outfit</h3>
 
                     <div class="selection-tabs">
-                        <button type="button" class="tab-button active" data-tab="outfit-default">Default Outfits</button>
-                        <button type="button" class="tab-button" data-tab="outfit-upload">Upload Outfit</button>
+                        <button type="button" class="tab-button" data-tab="outfit-default">The Catalogue</button>
+                        <button type="button" class="tab-button active" data-tab="outfit-upload">Your Outfit Picture</button>
                     </div>
 
                     <!-- Default Outfits Tab -->
-                    <div class="tab-content active" id="outfit-default">
+                    <div class="tab-content" id="outfit-default">
                         <?php if (!empty($outfitOptions)): ?>
                             <div class="selection-grid">
                                 <?php foreach ($outfitOptions as $index => $outfit): ?>
@@ -769,7 +964,12 @@ $csrfToken = Session::generateCSRFToken();
                     </div>
 
                     <!-- Upload Outfit Tab -->
-                    <div class="tab-content" id="outfit-upload">
+                    <div class="tab-content active" id="outfit-upload">
+                        <div style="margin-bottom: 20px; text-align: center; padding: 0 20px;">
+                            <p style="color: #495057; font-size: 1.1em; line-height: 1.5; margin: 0;">
+                                Upload a photo of an outfit, or you can even upload a picture of someone in an outfit, and try it on you. You can also choose from our catalogue.
+                            </p>
+                        </div>
                         <div class="upload-area" id="outfitUploadArea">
                             <input type="file" name="outfit_upload" accept="image/*" id="outfitFileInput">
                             <div class="upload-icon">👔</div>
@@ -796,26 +996,49 @@ $csrfToken = Session::generateCSRFToken();
                         <input type="radio" name="make_private" value="1">
                         <div class="option-content">
                             <strong>🔒 Private (1 credit)</strong>
-                            <p>Keep your photo completely private. Only you can see it.</p>
+                            <p>Keep your photo completely private. Only you can see it. You can always download your photos.</p>
                         </div>
                     </label>
+
+                    <!-- Credits Summary Table -->
+                    <div class="credits-summary">
+                        <h4>Credit Summary</h4>
+                        <table>
+                            <tr>
+                                <td>Total Credits:</td>
+                                <td id="totalCredits"><?= number_format($credits, 1) ?></td>
+                            </tr>
+                            <tr>
+                                <td>Deducted Credits:</td>
+                                <td id="deductedCredits">0.5</td>
+                            </tr>
+                            <tr class="remaining-row">
+                                <td>Remaining Credits:</td>
+                                <td id="remainingCredits"><?= number_format(max(0, $credits - 0.5), 1) ?></td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
 
-                <button type="submit" class="generate-btn" id="generateBtn" <?= $credits < 0.5 ? 'disabled' : '' ?>>
-                    <span id="generateBtnText">
-                        <?= $credits < 0.5 ? 'Insufficient Credits' : '✨ Generate AI Try-On (0.5 Credits)' ?>
-                    </span>
-                </button>
             </form>
-
-            <?php if ($credits < 1): ?>
-                <div style="text-align: center; margin-top: 20px;">
-                    <a href="/pricing.php" style="color: #667eea; text-decoration: none; font-weight: bold;">
-                        💳 Purchase More Credits
-                    </a>
-                </div>
-            <?php endif; ?>
         </div>
+    </div>
+
+    <!-- Fixed bottom section with generate button -->
+    <div class="bottom-section">
+        <button type="submit" form="tryOnForm" class="generate-btn-fixed" id="generateBtn" <?= $credits < 0.5 ? 'disabled' : '' ?>>
+            <span id="generateBtnText">
+                <?= $credits < 0.5 ? 'Insufficient Credits' : 'Generate Fit' ?>
+            </span>
+        </button>
+
+        <?php if ($credits < 1): ?>
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="/pricing.php" style="color: #667eea; text-decoration: none; font-weight: bold; font-size: 0.9em;">
+                    💳 Purchase More Credits
+                </a>
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- Loading Overlay -->
@@ -836,11 +1059,18 @@ $csrfToken = Session::generateCSRFToken();
             </div>
 
             <div class="success-content" id="successContent">
-                <h3 style="color: #2c3e50; margin-bottom: 10px;">🎉 Try-On Complete!</h3>
-                <p style="color: #6c757d; margin-bottom: 20px;">Your AI virtual try-on has been generated successfully.</p>
-                <button class="generate-another-btn" onclick="location.reload()">
-                    ✨ Generate Another
-                </button>
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">🎉 Try-On Complete!</h3>
+                <div class="result-preview" id="resultPreview">
+                    <!-- Image will be inserted here -->
+                </div>
+                <div class="success-buttons">
+                    <button class="see-full-size-btn" id="seeFullSizeBtn" onclick="">
+                        👀 See Full Size
+                    </button>
+                    <button class="generate-another-btn" onclick="location.reload()">
+                        ✨ Generate Another
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1062,14 +1292,17 @@ $csrfToken = Session::generateCSRFToken();
                     appState.isPrivate = this.value === '1';
                     appState.creditCost = appState.isPrivate ? 1 : 0.5;
 
+                    // Update credits table
+                    document.getElementById('deductedCredits').textContent = appState.creditCost;
+                    document.getElementById('remainingCredits').textContent = Math.max(0, userCredits - appState.creditCost).toFixed(1);
+
                     // Update button text
                     const btnText = document.getElementById('generateBtnText');
                     if (userCredits < appState.creditCost) {
                         btnText.textContent = 'Insufficient Credits';
                         generateBtn.disabled = true;
                     } else {
-                        const privacyText = appState.isPrivate ? 'Private' : 'Public';
-                        btnText.textContent = `✨ Generate AI Try-On (${appState.creditCost} Credits) - ${privacyText}`;
+                        btnText.textContent = 'Generate Fit';
                         generateBtn.disabled = false;
                     }
                 });
@@ -1162,106 +1395,106 @@ $csrfToken = Session::generateCSRFToken();
                 }
             });
 
-            // Progress timer function with optimistic UI
-            let progressTimer = null;
-            let progressStartTime = null;
+            // Simplified progress function
             let currentProgress = 0;
-            let fakeProgressTimer = null;
+            let progressInterval = null;
 
             function startProgressTimer() {
-                progressStartTime = Date.now();
                 const progressBar = document.getElementById('progressBar');
                 const progressText = document.getElementById('progressText');
 
                 // Reset progress
                 currentProgress = 0;
                 progressBar.style.width = '0%';
-                progressText.textContent = 'Uploading images...';
+                progressText.textContent = 'Starting generation...';
 
                 // Clear any existing timer
-                if (progressTimer) clearInterval(progressTimer);
-                if (fakeProgressTimer) clearInterval(fakeProgressTimer);
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
 
-                // Start fake progress to 70% over 10 seconds
-                fakeProgressTimer = setInterval(() => {
-                    if (currentProgress < 70) {
-                        currentProgress = Math.min(70, currentProgress + 2);
+                // Smooth progress animation to 95% over 25 seconds
+                const duration = 25000; // 25 seconds
+                const startTime = Date.now();
+
+                progressInterval = setInterval(() => {
+                    const elapsed = Date.now() - startTime;
+                    const targetProgress = Math.min(95, (elapsed / duration) * 95);
+
+                    // Smooth increment
+                    if (currentProgress < targetProgress) {
+                        currentProgress = Math.min(targetProgress, currentProgress + 1);
                         progressBar.style.width = currentProgress + '%';
 
                         // Update text based on progress
-                        if (currentProgress < 15) {
+                        if (currentProgress < 20) {
                             progressText.textContent = 'Uploading images...';
-                        } else if (currentProgress < 30) {
+                        } else if (currentProgress < 40) {
                             progressText.textContent = 'Analyzing your photo...';
-                        } else if (currentProgress < 50) {
+                        } else if (currentProgress < 60) {
                             progressText.textContent = 'Processing outfit...';
+                        } else if (currentProgress < 80) {
+                            progressText.textContent = 'AI is generating your fit...';
                         } else {
-                            progressText.textContent = 'Generating your fit...';
+                            progressText.textContent = 'Applying finishing touches...';
                         }
-                    } else {
-                        clearInterval(fakeProgressTimer);
-                        fakeProgressTimer = null;
                     }
-                }, 120); // Update every 120ms for smooth fake progress
+
+                    // Stop at 95%
+                    if (currentProgress >= 95) {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                        progressText.textContent = 'Almost done...';
+                    }
+                }, 100);
             }
 
             function updateProgressFromJob(job) {
-                const progressBar = document.getElementById('progressBar');
-                const progressText = document.getElementById('progressText');
+                // Only update if we have real progress from the server
+                if (job.status === 'completed') {
+                    const progressBar = document.getElementById('progressBar');
+                    const progressText = document.getElementById('progressText');
 
-                // Use real progress if available
-                if (job.progress !== undefined) {
-                    currentProgress = job.progress;
-                    progressBar.style.width = currentProgress + '%';
+                    // Jump to 100% when complete
+                    currentProgress = 100;
+                    progressBar.style.width = '100%';
+                    progressText.textContent = 'Complete!';
 
-                    // Update text based on stage
-                    switch(job.progress_stage) {
-                        case 'UPLOADED':
-                            progressText.textContent = 'Images uploaded successfully...';
-                            break;
-                        case 'QUEUED':
-                            progressText.textContent = 'Queued for processing...';
-                            break;
-                        case 'PROCESSING':
-                            progressText.textContent = 'AI is generating your fit...';
-                            break;
-                        case 'POSTPROCESSING':
-                            progressText.textContent = 'Applying finishing touches...';
-                            break;
-                        case 'COMPLETE':
-                            progressText.textContent = 'Complete!';
-                            break;
-                        default:
-                            progressText.textContent = `${currentProgress}% complete`;
+                    // Clear any running interval
+                    if (progressInterval) {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
                     }
-
-                    // Add ETA if available
-                    if (job.eta_seconds && job.eta_seconds > 0) {
-                        progressText.textContent += ` (${Math.ceil(job.eta_seconds)}s remaining)`;
-                    }
-                }
-
-                // Clear fake timer if real progress is ahead
-                if (fakeProgressTimer && currentProgress >= 70) {
-                    clearInterval(fakeProgressTimer);
-                    fakeProgressTimer = null;
                 }
             }
 
             function stopProgressTimer() {
-                if (progressTimer) {
-                    clearInterval(progressTimer);
-                    progressTimer = null;
-                }
-                if (fakeProgressTimer) {
-                    clearInterval(fakeProgressTimer);
-                    fakeProgressTimer = null;
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
                 }
             }
 
-            function showSuccessState() {
+            function showSuccessState(result) {
                 stopProgressTimer();
                 document.getElementById('loadingContent').style.display = 'none';
+
+                // Show the result image in the modal
+                if (result && result.result_url) {
+                    const resultPreview = document.getElementById('resultPreview');
+                    resultPreview.innerHTML = `<img src="${result.result_url}" alt="AI Generated Try-On Result">`;
+
+                    // Set up "See Full Size" button
+                    const seeFullSizeBtn = document.getElementById('seeFullSizeBtn');
+                    if (result.share_token) {
+                        seeFullSizeBtn.onclick = () => window.location.href = `/share/${result.share_token}?new=1`;
+                    } else {
+                        // For private photos, just open in new tab
+                        seeFullSizeBtn.onclick = () => window.open(result.result_url, '_blank');
+                    }
+                }
+
                 document.getElementById('successContent').classList.add('show');
             }
 
@@ -1276,16 +1509,19 @@ $csrfToken = Session::generateCSRFToken();
                 messageDiv.innerHTML = `
                     ${type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️'}
                     <span>${message}</span>
+                    <button class="close-btn" onclick="this.parentElement.remove()">×</button>
                 `;
 
-                // Insert at top of form container
-                const formContainer = document.querySelector('.form-container');
-                formContainer.insertBefore(messageDiv, formContainer.firstChild);
+                // Append to body for fixed positioning
+                document.body.appendChild(messageDiv);
 
-                // Auto-remove success messages
-                if (type === 'success') {
-                    setTimeout(() => messageDiv.remove(), 5000);
-                }
+                // Auto-remove after time based on type
+                const autoRemoveTime = type === 'success' ? 5000 : type === 'error' ? 8000 : 6000;
+                setTimeout(() => {
+                    if (messageDiv.parentElement) {
+                        messageDiv.remove();
+                    }
+                }, autoRemoveTime);
             }
 
             // Poll job status with adaptive polling rate
@@ -1312,18 +1548,8 @@ $csrfToken = Session::generateCSRFToken();
                             updateProgressFromJob(data.job);
 
                             if (data.job.status === 'completed') {
-                                // Success! Show success state
-                                showSuccessState();
-
-                                if (data.job.result && data.job.result.share_token) {
-                                    // Redirect to share page immediately
-                                    setTimeout(() => {
-                                        window.location.href = `/share/${data.job.result.share_token}?new=1`;
-                                    }, 500);
-                                } else if (data.job.result && data.job.result.result_url) {
-                                    // For private photos, show success state and allow "Generate Another"
-                                    // Success state is already shown, user can click "Generate Another"
-                                }
+                                // Success! Show success state with result
+                                showSuccessState(data.job.result);
                             } else if (data.job.status === 'failed') {
                                 stopProgressTimer();
                                 throw new Error(data.job.error || 'Generation failed');
