@@ -730,7 +730,7 @@ if (file_exists($localImagePath)) {
         if ($isOwner && $justCreated):
         ?>
             <div class="status-message success" style="margin-bottom: 20px; padding: 20px; background: linear-gradient(45deg, #4ecdc4, #44a08d); color: white; border-radius: 15px; text-align: center; font-weight: 600; box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);">
-                🎉 Congratulations! Your AI try-on is ready! Share it with friends or generate another.
+                🎉 Congratulations! Your fit is ready! Share it or generate another.
             </div>
         <?php endif; ?>
 
@@ -752,9 +752,9 @@ if (file_exists($localImagePath)) {
             </div>
             <div class="caption">
                 <?php if ($user && $user['id'] == $generation['user_id']): ?>
-                    Your AI Try-On Creation! 🎉
+                    Your hot new fit 🎉
                 <?php else: ?>
-                    AI Virtual Try-On Magic ✨
+                    AI Outfit Magic ✨
                 <?php endif; ?>
             </div>
             <div class="date">
