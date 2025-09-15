@@ -16,6 +16,56 @@ class AIService {
     public function generateFit(int $userId, array $standingPhotos, array $outfitPhoto, bool $isPublic = true): array {
         $pdo = Database::getInstance();
 
+        // Create hash of inputs for caching
+        $hashInputs = [
+            'user_id' => $userId,
+            'is_public' => $isPublic
+        ];
+
+        foreach ($standingPhotos as $photo) {
+            if (file_exists($photo['tmp_name'])) {
+                $hashInputs['standing_photos'][] = md5_file($photo['tmp_name']);
+            }
+        }
+
+        if (file_exists($outfitPhoto['tmp_name'])) {
+            $hashInputs['outfit_photo'] = md5_file($outfitPhoto['tmp_name']);
+        }
+
+        $inputHash = md5(json_encode($hashInputs));
+
+        // Check for cached result (within last 24 hours)
+        $stmt = $pdo->prepare('
+            SELECT id, result_url, share_token, processing_time
+            FROM generations
+            WHERE input_hash = ?
+            AND status = "completed"
+            AND created_at > datetime("now", "-24 hours")
+            ORDER BY created_at DESC
+            LIMIT 1
+        ');
+        $stmt->execute([$inputHash]);
+        $cachedResult = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($cachedResult) {
+            Logger::info('AIService - Returning cached result', [
+                'user_id' => $userId,
+                'cached_generation_id' => $cachedResult['id'],
+                'input_hash' => $inputHash
+            ]);
+
+            return [
+                'success' => true,
+                'generation_id' => $cachedResult['id'],
+                'result_url' => $cachedResult['result_url'],
+                'processing_time' => 0, // Instant from cache
+                'is_public' => $isPublic,
+                'share_token' => $cachedResult['share_token'],
+                'share_url' => $cachedResult['share_token'] ? '/share/' . $cachedResult['share_token'] : null,
+                'from_cache' => true
+            ];
+        }
+
         // Analyze outfit image to determine processing approach
         $outfitAnalysis = $this->analyzeOutfitImage($outfitPhoto);
 
@@ -26,17 +76,17 @@ class AIService {
         // Generate share token for public photos
         $shareToken = $isPublic ? bin2hex(random_bytes(16)) : null;
 
-        // Create generation record
+        // Create generation record with hash
         $stmt = $pdo->prepare('
-            INSERT INTO generations (user_id, status, input_data, is_public, share_token)
-            VALUES (?, "processing", ?, ?, ?)
+            INSERT INTO generations (user_id, status, input_data, input_hash, is_public, share_token)
+            VALUES (?, "processing", ?, ?, ?, ?)
         ');
         $stmt->execute([$userId, json_encode([
             'standing_photos_count' => count($standingPhotos),
             'has_outfit_photo' => !empty($outfitPhoto),
             'is_public' => $isPublic
-        ]), $isPublic ? 1 : 0, $shareToken]);
-        
+        ]), $inputHash, $isPublic ? 1 : 0, $shareToken]);
+
         $generationId = $pdo->lastInsertId();
         $startTime = time();
         
@@ -191,7 +241,31 @@ class AIService {
 
                     // Save image and return URL
                     $filename = $this->saveGeneratedImage($imageData, $mimeType);
-                    return ['url' => '/generated/' . $filename];
+                    $generatedImageUrl = '/generated/' . $filename;
+
+                    // Validate result if outfit type was person wearing outfit
+                    if ($outfitAnalysis['outfit_type'] === 'person_wearing_outfit') {
+                        $validationResult = $this->validateGeneratedResult($generatedImageUrl, $standingPhotos[0], $outfitPhoto);
+
+                        if (!$validationResult['is_valid'] && $validationResult['needs_correction']) {
+                            Logger::info('AIService - Initial result needs correction, attempting fix', [
+                                'validation_reason' => $validationResult['reason']
+                            ]);
+
+                            // Try to fix the image
+                            $correctedResult = $this->correctGeneratedImage($generatedImageUrl, $standingPhotos[0], $outfitPhoto, $validationResult['reason']);
+                            if ($correctedResult) {
+                                // Delete the original incorrect image
+                                $originalPath = __DIR__ . '/../' . ltrim($generatedImageUrl, '/');
+                                if (file_exists($originalPath)) {
+                                    @unlink($originalPath);
+                                }
+                                return $correctedResult;
+                            }
+                        }
+                    }
+
+                    return ['url' => $generatedImageUrl];
                 }
 
                 if (isset($part['text'])) {
@@ -402,6 +476,215 @@ Take the exact person shown in the first image (preserve their identity, face, h
 Set the scene in a bright, clean outdoor environment with natural lighting and soft shadows. The final image should look like professional fashion photography with sharp focus and high detail, optimized for square social media formats.
 
 Generate only the image - do not provide any text description or explanation.";
+    }
+
+    private function validateGeneratedResult(string $generatedImageUrl, array $personPhoto, array $outfitPhoto): array {
+        if (empty($this->geminiApiKey)) {
+            // If no AI available for validation, assume it's valid
+            return ['is_valid' => true, 'needs_correction' => false];
+        }
+
+        try {
+            // Read the generated image
+            $generatedImagePath = __DIR__ . '/../' . ltrim($generatedImageUrl, '/');
+            if (!file_exists($generatedImagePath)) {
+                return ['is_valid' => false, 'needs_correction' => false, 'reason' => 'Generated image not found'];
+            }
+
+            $generatedImageData = base64_encode(file_get_contents($generatedImagePath));
+            $personB64 = $this->imageToBase64($personPhoto);
+            $outfitB64 = $this->imageToBase64($outfitPhoto);
+
+            $validationPrompt = "Analyze these three images:
+1. Person photo (reference person)
+2. Outfit source photo (may contain a different person wearing clothes)
+3. Generated result photo
+
+Check if the generated result shows the REFERENCE PERSON (from image 1) wearing the OUTFIT from image 2, while completely ignoring any person that may be in image 2.
+
+Respond with ONLY ONE of these exact phrases:
+- 'CORRECT_PERSON_CORRECT_OUTFIT' - if the generated image shows the reference person wearing the outfit correctly
+- 'WRONG_PERSON_MIXED' - if the generated image mixed/blended faces or shows the wrong person from the outfit photo
+- 'UNCLEAR_RESULT' - if the result is unclear or has other issues
+
+Look carefully and respond with exactly one of those phrases, nothing else.";
+
+            $requestData = [
+                'contents' => [[
+                    'parts' => [
+                        ['text' => $validationPrompt],
+                        [
+                            'inline_data' => [
+                                'mime_type' => $personPhoto['type'] ?? 'image/jpeg',
+                                'data' => $personB64
+                            ]
+                        ],
+                        [
+                            'inline_data' => [
+                                'mime_type' => $outfitPhoto['type'] ?? 'image/jpeg',
+                                'data' => $outfitB64
+                            ]
+                        ],
+                        [
+                            'inline_data' => [
+                                'mime_type' => 'image/jpeg',
+                                'data' => $generatedImageData
+                            ]
+                        ]
+                    ]
+                ]],
+                'generationConfig' => [
+                    'temperature' => 0.1,
+                    'maxOutputTokens' => 50
+                ]
+            ];
+
+            $response = $this->makeGeminiRequest($requestData);
+
+            if (isset($response['candidates'][0]['content']['parts'][0]['text'])) {
+                $validationResult = trim($response['candidates'][0]['content']['parts'][0]['text']);
+
+                Logger::info('AIService - Validation result', [
+                    'validation_result' => $validationResult
+                ]);
+
+                switch ($validationResult) {
+                    case 'CORRECT_PERSON_CORRECT_OUTFIT':
+                        return ['is_valid' => true, 'needs_correction' => false];
+
+                    case 'WRONG_PERSON_MIXED':
+                        return [
+                            'is_valid' => false,
+                            'needs_correction' => true,
+                            'reason' => 'Generated image shows wrong person or mixed faces from outfit photo'
+                        ];
+
+                    case 'UNCLEAR_RESULT':
+                        return [
+                            'is_valid' => false,
+                            'needs_correction' => true,
+                            'reason' => 'Generated result is unclear or has quality issues'
+                        ];
+
+                    default:
+                        Logger::warning('AIService - Unexpected validation result', [
+                            'result' => $validationResult
+                        ]);
+                        return ['is_valid' => true, 'needs_correction' => false];
+                }
+            }
+
+            return ['is_valid' => true, 'needs_correction' => false];
+
+        } catch (Exception $e) {
+            Logger::error('AIService - Validation error', [
+                'error' => $e->getMessage()
+            ]);
+            return ['is_valid' => true, 'needs_correction' => false];
+        }
+    }
+
+    private function correctGeneratedImage(string $originalImageUrl, array $personPhoto, array $outfitPhoto, string $reason): ?array {
+        if (empty($this->geminiApiKey)) {
+            return null;
+        }
+
+        try {
+            $personB64 = $this->imageToBase64($personPhoto);
+            $outfitB64 = $this->imageToBase64($outfitPhoto);
+
+            // Read the problematic generated image
+            $originalImagePath = __DIR__ . '/../' . ltrim($originalImageUrl, '/');
+            $originalImageData = base64_encode(file_get_contents($originalImagePath));
+
+            $correctionPrompt = "CRITICAL CORRECTION NEEDED: The previous generation failed to properly follow instructions.
+
+Here are the images:
+1. Target person (USE THIS PERSON'S FACE AND BODY)
+2. Outfit source (EXTRACT ONLY THE CLOTHES, IGNORE ANY PERSON)
+3. Failed result (showing the wrong person or mixed faces)
+
+CREATE A NEW CORRECTED VERSION that shows ONLY the person from image 1 wearing ONLY the clothing from image 2.
+
+STRICT REQUIREMENTS:
+- Use EXACTLY the face, hair, and body from the TARGET PERSON (image 1)
+- COMPLETELY IGNORE any person in the outfit source (image 2) - extract ONLY their clothing
+- DO NOT blend or mix faces
+- DO NOT use any facial features from the outfit source image
+- The result should look like the target person tried on the clothes from image 2
+
+Create a photorealistic SQUARE FORMAT image (1:1 aspect ratio) with professional fashion photography lighting.
+Generate only the corrected image - no text.";
+
+            $requestData = [
+                'contents' => [[
+                    'parts' => [
+                        ['text' => $correctionPrompt],
+                        [
+                            'inline_data' => [
+                                'mime_type' => $personPhoto['type'] ?? 'image/jpeg',
+                                'data' => $personB64
+                            ]
+                        ],
+                        [
+                            'inline_data' => [
+                                'mime_type' => $outfitPhoto['type'] ?? 'image/jpeg',
+                                'data' => $outfitB64
+                            ]
+                        ],
+                        [
+                            'inline_data' => [
+                                'mime_type' => 'image/jpeg',
+                                'data' => $originalImageData
+                            ]
+                        ]
+                    ]
+                ]],
+                'generationConfig' => [
+                    'temperature' => 0.3,
+                    'maxOutputTokens' => 8192
+                ]
+            ];
+
+            $response = $this->makeGeminiRequest($requestData);
+
+            // Process response same as normal generation
+            if (isset($response['candidates'][0]['content']['parts'])) {
+                foreach ($response['candidates'][0]['content']['parts'] as $part) {
+                    $imageData = null;
+                    $mimeType = null;
+
+                    if (isset($part['inline_data']['data'])) {
+                        $imageData = $part['inline_data']['data'];
+                        $mimeType = $part['inline_data']['mime_type'] ?? 'image/jpeg';
+                    } elseif (isset($part['inlineData']['data'])) {
+                        $imageData = $part['inlineData']['data'];
+                        $mimeType = $part['inlineData']['mimeType'] ?? 'image/jpeg';
+                    }
+
+                    if ($imageData) {
+                        Logger::info('AIService - Generated corrected image', [
+                            'mime_type' => $mimeType,
+                            'data_length' => strlen($imageData),
+                            'correction_reason' => $reason
+                        ]);
+
+                        $filename = $this->saveGeneratedImage($imageData, $mimeType);
+                        return ['url' => '/generated/' . $filename];
+                    }
+                }
+            }
+
+            Logger::warning('AIService - Correction failed, no image in response');
+            return null;
+
+        } catch (Exception $e) {
+            Logger::error('AIService - Correction error', [
+                'error' => $e->getMessage(),
+                'reason' => $reason
+            ]);
+            return null;
+        }
     }
 
     private function analyzeOutfitImage(array $outfitPhoto): array {

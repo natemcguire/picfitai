@@ -88,6 +88,7 @@ class Database {
                 user_id INTEGER NOT NULL,
                 status TEXT NOT NULL DEFAULT "pending", -- pending, processing, completed, failed
                 input_data TEXT, -- JSON of input parameters
+                input_hash TEXT, -- Hash for cache lookup
                 result_url TEXT,
                 error_message TEXT,
                 processing_time INTEGER, -- seconds
@@ -130,6 +131,9 @@ class Database {
                 job_type TEXT NOT NULL,
                 job_data TEXT, -- JSON data
                 status TEXT NOT NULL DEFAULT "queued", -- queued, processing, completed, failed
+                progress INTEGER DEFAULT 0, -- Progress percentage 0-100
+                progress_stage TEXT, -- UPLOADED, QUEUED, PROCESSING, POSTPROCESSING, COMPLETE
+                input_hash TEXT, -- Hash of input for idempotency
                 result_data TEXT, -- JSON result
                 error_message TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -178,11 +182,13 @@ class Database {
             'CREATE INDEX IF NOT EXISTS idx_generations_status ON generations(status)',
             'CREATE INDEX IF NOT EXISTS idx_generations_public ON generations(is_public)',
             'CREATE INDEX IF NOT EXISTS idx_generations_share_token ON generations(share_token)',
+            'CREATE INDEX IF NOT EXISTS idx_generations_hash ON generations(input_hash)',
             'CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at)',
             'CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start)',
             'CREATE INDEX IF NOT EXISTS idx_background_jobs_user ON background_jobs(user_id)',
             'CREATE INDEX IF NOT EXISTS idx_background_jobs_status ON background_jobs(status)',
             'CREATE INDEX IF NOT EXISTS idx_background_jobs_job_id ON background_jobs(job_id)',
+            'CREATE INDEX IF NOT EXISTS idx_background_jobs_hash ON background_jobs(input_hash)',
             'CREATE INDEX IF NOT EXISTS idx_user_photos_user ON user_photos(user_id)',
             'CREATE INDEX IF NOT EXISTS idx_user_photos_primary ON user_photos(user_id, is_primary)'
         ];

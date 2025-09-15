@@ -8,8 +8,23 @@ require_once __DIR__ . '/includes/UserPhotoService.php';
 Session::requireLogin();
 $user = Session::getCurrentUser();
 
-// Get recent generations with share tokens and likes count
+// Pagination setup
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 10;
+$offset = ($page - 1) * $perPage;
+
 $pdo = Database::getInstance();
+
+// Get total count of generations
+$stmt = $pdo->prepare('SELECT COUNT(*) FROM generations WHERE user_id = ?');
+$stmt->execute([$user['id']]);
+$totalGenerations = (int)$stmt->fetchColumn();
+
+// Calculate pagination info
+$totalPages = max(1, ceil($totalGenerations / $perPage));
+$page = min($page, $totalPages); // Ensure page doesn't exceed total pages
+
+// Get recent generations with share tokens and likes count (paginated)
 $stmt = $pdo->prepare('
     SELECT g.*,
            COALESCE(SUM(CASE WHEN pr.rating = 1 THEN 1 ELSE 0 END), 0) as likes_count,
@@ -19,9 +34,9 @@ $stmt = $pdo->prepare('
     WHERE g.user_id = ?
     GROUP BY g.id
     ORDER BY g.created_at DESC
-    LIMIT 10
+    LIMIT ? OFFSET ?
 ');
-$stmt->execute([$user['id']]);
+$stmt->execute([$user['id'], $perPage, $offset]);
 $generations = $stmt->fetchAll();
 
 // Add share URLs for completed generations
@@ -376,6 +391,80 @@ foreach ($userPhotos as &$photo) {
             cursor: not-allowed;
         }
 
+        .generations-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .generations-header h3 {
+            margin: 0;
+        }
+
+        .generations-info {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .pagination-container {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pagination-btn, .pagination-number {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: white;
+            color: #495057;
+            text-decoration: none;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .pagination-btn:hover, .pagination-number:hover {
+            background: #f8f9fa;
+            border-color: #adb5bd;
+            color: #212529;
+        }
+
+        .pagination-number.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .pagination-number.active:hover {
+            background: #5a6fd8;
+            border-color: #5a6fd8;
+        }
+
+        .pagination-dots {
+            padding: 8px 4px;
+            color: #6c757d;
+            font-weight: bold;
+        }
+
+        .pagination-prev, .pagination-next {
+            font-weight: 600;
+        }
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -653,6 +742,30 @@ foreach ($userPhotos as &$photo) {
                 padding: 6px;
                 font-size: 14px;
             }
+
+            .generations-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .generations-info {
+                font-size: 0.8em;
+            }
+
+            .pagination {
+                gap: 4px;
+            }
+
+            .pagination-btn, .pagination-number {
+                padding: 6px 8px;
+                font-size: 0.8em;
+                min-width: 32px;
+            }
+
+            .pagination-prev, .pagination-next {
+                padding: 6px 12px;
+            }
         }
     </style>
 </head>
@@ -809,7 +922,17 @@ foreach ($userPhotos as &$photo) {
                 <div>
                     <!-- Recent Generations -->
                     <div class="card">
-                        <h3>Recent Generations</h3>
+                        <div class="generations-header">
+                            <h3>Recent Generations</h3>
+                            <?php if ($totalGenerations > 0): ?>
+                                <div class="generations-info">
+                                    Showing <?= count($generations) ?> of <?= $totalGenerations ?> generations
+                                    <?php if ($totalPages > 1): ?>
+                                        (Page <?= $page ?> of <?= $totalPages ?>)
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
 
                         <?php if (empty($generations)): ?>
                             <div class="empty-state">
@@ -833,7 +956,7 @@ foreach ($userPhotos as &$photo) {
                                     <?php endif; ?>
 
                                     <div class="generation-info">
-                                        <h4>Outfit #<?= count($generations) - $index ?></h4>
+                                        <h4>Outfit #<?= $totalGenerations - (($page - 1) * $perPage + $index) ?></h4>
                                         <div class="date"><?= date('M j, g:i A', strtotime($gen['created_at'])) ?></div>
                                         <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
                                             <span class="status-badge status-<?= $gen['status'] ?>">
@@ -875,6 +998,51 @@ foreach ($userPhotos as &$photo) {
                                     </div>
                                 </div>
                             <?php endforeach; ?>
+
+                            <!-- Pagination -->
+                            <?php if ($totalPages > 1): ?>
+                                <div class="pagination-container">
+                                    <div class="pagination">
+                                        <?php if ($page > 1): ?>
+                                            <a href="?page=<?= $page - 1 ?>" class="pagination-btn pagination-prev">
+                                                ← Previous
+                                            </a>
+                                        <?php endif; ?>
+
+                                        <div class="pagination-numbers">
+                                            <?php
+                                            $startPage = max(1, $page - 2);
+                                            $endPage = min($totalPages, $page + 2);
+
+                                            if ($startPage > 1): ?>
+                                                <a href="?page=1" class="pagination-number">1</a>
+                                                <?php if ($startPage > 2): ?>
+                                                    <span class="pagination-dots">...</span>
+                                                <?php endif; ?>
+                                            <?php endif;
+
+                                            for ($i = $startPage; $i <= $endPage; $i++): ?>
+                                                <a href="?page=<?= $i ?>" class="pagination-number <?= $i == $page ? 'active' : '' ?>">
+                                                    <?= $i ?>
+                                                </a>
+                                            <?php endfor;
+
+                                            if ($endPage < $totalPages): ?>
+                                                <?php if ($endPage < $totalPages - 1): ?>
+                                                    <span class="pagination-dots">...</span>
+                                                <?php endif; ?>
+                                                <a href="?page=<?= $totalPages ?>" class="pagination-number"><?= $totalPages ?></a>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <?php if ($page < $totalPages): ?>
+                                            <a href="?page=<?= $page + 1 ?>" class="pagination-btn pagination-next">
+                                                Next →
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -894,7 +1062,7 @@ foreach ($userPhotos as &$photo) {
                         </div>
                         <div class="info-row">
                             <span class="info-label">Total generations:</span>
-                            <span class="info-value"><?= count($generations) ?></span>
+                            <span class="info-value"><?= $totalGenerations ?></span>
                         </div>
 
                         <?php if ($user['credits_remaining'] === 0): ?>

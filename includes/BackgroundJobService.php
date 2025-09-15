@@ -10,6 +10,50 @@ class BackgroundJobService {
     public static function queueGeneration(int $userId, array $standingPhotos, array $outfitPhoto, bool $isPublic = true): string {
         $pdo = Database::getInstance();
 
+        // Create hash of inputs for idempotency
+        $hashInputs = [
+            'user_id' => $userId,
+            'is_public' => $isPublic
+        ];
+
+        // Add file hashes for idempotency check
+        foreach ($standingPhotos as $photo) {
+            if (file_exists($photo['tmp_name'])) {
+                $hashInputs['standing_photos'][] = md5_file($photo['tmp_name']);
+            }
+        }
+
+        if (file_exists($outfitPhoto['tmp_name'])) {
+            $hashInputs['outfit_photo'] = md5_file($outfitPhoto['tmp_name']);
+        }
+
+        $inputHash = md5(json_encode($hashInputs));
+
+        // Check for existing job with same hash within last 5 minutes
+        $stmt = $pdo->prepare('
+            SELECT job_id, status, progress, progress_stage
+            FROM background_jobs
+            WHERE user_id = ?
+            AND input_hash = ?
+            AND created_at > datetime("now", "-5 minutes")
+            AND status IN ("queued", "processing", "completed")
+            ORDER BY created_at DESC
+            LIMIT 1
+        ');
+        $stmt->execute([$userId, $inputHash]);
+        $existingJob = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existingJob) {
+            Logger::info('BackgroundJobService - Returning existing job (idempotency)', [
+                'existing_job_id' => $existingJob['job_id'],
+                'status' => $existingJob['status'],
+                'progress' => $existingJob['progress'],
+                'stage' => $existingJob['progress_stage'],
+                'input_hash' => $inputHash
+            ]);
+            return $existingJob['job_id'];
+        }
+
         // Store uploaded files in a temporary location with unique names
         $jobId = uniqid('job_', true);
         $tempJobsDir = __DIR__ . '/../temp_jobs';
@@ -67,20 +111,24 @@ class BackgroundJobService {
             ];
         }
 
-        // Store job in database
+        // Store job in database with progress tracking
         $stmt = $pdo->prepare('
-            INSERT INTO background_jobs (job_id, user_id, job_type, job_data, status, created_at)
-            VALUES (?, ?, "ai_generation", ?, "queued", CURRENT_TIMESTAMP)
+            INSERT INTO background_jobs (
+                job_id, user_id, job_type, job_data, status,
+                progress, progress_stage, input_hash, created_at
+            )
+            VALUES (?, ?, "ai_generation", ?, "queued", 5, "UPLOADED", ?, CURRENT_TIMESTAMP)
         ');
 
         $jobData = json_encode([
             'standing_photos' => $savedStandingPhotos,
             'outfit_photo' => $savedOutfitPhoto,
             'temp_dir' => $tempDir,
-            'is_public' => $isPublic
+            'is_public' => $isPublic,
+            'input_hash' => $inputHash
         ]);
 
-        $stmt->execute([$jobId, $userId, $jobData]);
+        $stmt->execute([$jobId, $userId, $jobData, $inputHash]);
 
         Logger::info('BackgroundJobService - Job queued', [
             'job_id' => $jobId,
@@ -106,8 +154,23 @@ class BackgroundJobService {
         }
 
         // Update status to processing
-        $pdo->prepare('UPDATE background_jobs SET status = "processing", started_at = CURRENT_TIMESTAMP WHERE job_id = ?')
-            ->execute([$jobId]);
+        $pdo->prepare('
+            UPDATE background_jobs
+            SET status = "processing",
+                progress = 10,
+                progress_stage = "PROCESSING",
+                started_at = CURRENT_TIMESTAMP
+            WHERE job_id = ?
+        ')->execute([$jobId]);
+
+        // Update progress helper function
+        $updateProgress = function($jobId, $progress, $stage) use ($pdo) {
+            $pdo->prepare('
+                UPDATE background_jobs
+                SET progress = ?, progress_stage = ?
+                WHERE job_id = ?
+            ')->execute([$progress, $stage, $jobId]);
+        };
 
         try {
             $jobData = json_decode($job['job_data'], true);
@@ -133,9 +196,15 @@ class BackgroundJobService {
             // Get privacy setting from job data
             $isPublic = $jobData['is_public'] ?? true;
 
+            // Update progress: Starting AI processing
+            $updateProgress($jobId, 30, 'PROCESSING');
+
             // Process with AI service
             $aiService = new AIService();
             $result = $aiService->generateFit((int)$job['user_id'], $standingPhotos, $outfitPhoto, $isPublic);
+
+            // Update progress: Post-processing
+            $updateProgress($jobId, 90, 'POSTPROCESSING');
 
             // Deduct credit (0.5 for public, 1 for private)
             Database::deductCredit((int)$job['user_id'], $isPublic);
@@ -143,7 +212,11 @@ class BackgroundJobService {
             // Update job with result
             $pdo->prepare('
                 UPDATE background_jobs
-                SET status = "completed", result_data = ?, completed_at = CURRENT_TIMESTAMP
+                SET status = "completed",
+                    progress = 100,
+                    progress_stage = "COMPLETE",
+                    result_data = ?,
+                    completed_at = CURRENT_TIMESTAMP
                 WHERE job_id = ?
             ')->execute([json_encode($result), $jobId]);
 
@@ -192,9 +265,31 @@ class BackgroundJobService {
             return null;
         }
 
+        // Calculate ETA based on average processing time
+        $eta = null;
+        if ($job['status'] === 'processing' && $job['started_at']) {
+            $avgTime = $pdo->query('
+                SELECT AVG(julianday(completed_at) - julianday(started_at)) * 86400 as avg_seconds
+                FROM background_jobs
+                WHERE status = "completed"
+                AND completed_at IS NOT NULL
+                AND started_at IS NOT NULL
+                AND created_at > datetime("now", "-7 days")
+            ')->fetchColumn();
+
+            if ($avgTime) {
+                $elapsed = time() - strtotime($job['started_at']);
+                $remaining = max(0, $avgTime - $elapsed);
+                $eta = round($remaining);
+            }
+        }
+
         $result = [
             'job_id' => $job['job_id'],
             'status' => $job['status'],
+            'progress' => (int)($job['progress'] ?? 0),
+            'progress_stage' => $job['progress_stage'],
+            'eta_seconds' => $eta,
             'created_at' => $job['created_at'],
             'started_at' => $job['started_at'],
             'completed_at' => $job['completed_at']

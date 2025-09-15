@@ -193,6 +193,16 @@ $csrfToken = Session::generateCSRFToken();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Virtual Try-On - <?= Config::get('app_name') ?></title>
+
+    <?php
+    // Preload first 4 outfit images for faster rendering
+    if (!empty($outfitOptions)) {
+        $preloadCount = min(4, count($outfitOptions));
+        for ($i = 0; $i < $preloadCount; $i++) {
+            echo '<link rel="preload" as="image" href="' . htmlspecialchars($outfitOptions[$i]['url']) . '">' . "\n    ";
+        }
+    }
+    ?>
     <style>
         * {
             margin: 0;
@@ -742,7 +752,9 @@ $csrfToken = Session::generateCSRFToken();
                                                id="outfit_<?= $index ?>"
                                                data-outfit-path="<?= htmlspecialchars($outfit['path']) ?>">
                                         <label for="outfit_<?= $index ?>">
-                                            <img src="<?= htmlspecialchars($outfit['url']) ?>" alt="<?= htmlspecialchars($outfit['name']) ?>">
+                                            <img src="<?= htmlspecialchars($outfit['url']) ?>"
+                                                 alt="<?= htmlspecialchars($outfit['name']) ?>"
+                                                 <?= $index >= 8 ? 'loading="lazy"' : '' ?>>
                                             <div class="selection-name"><?= htmlspecialchars($outfit['name']) ?></div>
                                         </label>
                                     </div>
@@ -846,6 +858,61 @@ $csrfToken = Session::generateCSRFToken();
             creditCost: 0.5
         };
 
+        // Image resizing utility for faster uploads
+        async function resizeImage(file, maxWidth = 2048, maxHeight = 2048, quality = 0.92) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        // Calculate new dimensions
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > maxWidth || height > maxHeight) {
+                            const ratio = Math.min(maxWidth / width, maxHeight / height);
+                            width = Math.round(width * ratio);
+                            height = Math.round(height * ratio);
+                        }
+
+                        // Create canvas
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        // Draw resized image
+                        const ctx = canvas.getContext('2d');
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // Convert to blob
+                        canvas.toBlob(
+                            (blob) => {
+                                if (blob) {
+                                    // Create new file from blob
+                                    const resizedFile = new File([blob], file.name, {
+                                        type: blob.type || 'image/jpeg',
+                                        lastModified: Date.now()
+                                    });
+                                    console.log(`Image resized: ${img.width}x${img.height} → ${width}x${height}, ${Math.round(file.size/1024)}KB → ${Math.round(blob.size/1024)}KB`);
+                                    resolve(resizedFile);
+                                } else {
+                                    resolve(file); // Fallback to original
+                                }
+                            },
+                            file.type === 'image/png' ? 'image/png' : 'image/jpeg',
+                            quality
+                        );
+                    };
+                    img.onerror = () => resolve(file); // Fallback to original
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => resolve(file); // Fallback to original
+                reader.readAsDataURL(file);
+            });
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('tryOnForm');
@@ -895,9 +962,26 @@ $csrfToken = Session::generateCSRFToken();
             const personUploadArea = document.getElementById('personUploadArea');
             const personPreview = document.getElementById('personPreview');
 
-            personFileInput.addEventListener('change', function() {
+            personFileInput.addEventListener('change', async function() {
                 if (this.files && this.files[0]) {
-                    const file = this.files[0];
+                    let file = this.files[0];
+
+                    // Show immediate preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        personPreview.innerHTML = `<img src="${e.target.result}" alt="Preview"><div style="margin-top: 10px; color: #6c757d;">Optimizing image...</div>`;
+                        personPreview.style.display = 'block';
+                        personUploadArea.classList.add('has-file');
+                    };
+                    reader.readAsDataURL(file);
+
+                    // Resize image in background
+                    try {
+                        file = await resizeImage(file);
+                        personPreview.querySelector('div').textContent = 'Image optimized!';
+                    } catch (err) {
+                        console.error('Failed to resize image:', err);
+                    }
 
                     // Update state
                     appState.personSource = 'upload';
@@ -908,15 +992,6 @@ $csrfToken = Session::generateCSRFToken();
                     document.querySelectorAll('input[name="person_source"][value="stored"]').forEach(radio => {
                         radio.checked = false;
                     });
-
-                    // Show preview
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        personPreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-                        personPreview.style.display = 'block';
-                        personUploadArea.classList.add('has-file');
-                    };
-                    reader.readAsDataURL(file);
 
                     // Auto-switch to upload tab
                     document.querySelector('[data-tab="person-upload"]').click();
@@ -945,9 +1020,26 @@ $csrfToken = Session::generateCSRFToken();
             const outfitUploadArea = document.getElementById('outfitUploadArea');
             const outfitPreview = document.getElementById('outfitPreview');
 
-            outfitFileInput.addEventListener('change', function() {
+            outfitFileInput.addEventListener('change', async function() {
                 if (this.files && this.files[0]) {
-                    const file = this.files[0];
+                    let file = this.files[0];
+
+                    // Show immediate preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        outfitPreview.innerHTML = `<img src="${e.target.result}" alt="Preview"><div style="margin-top: 10px; color: #6c757d;">Optimizing image...</div>`;
+                        outfitPreview.style.display = 'block';
+                        outfitUploadArea.classList.add('has-file');
+                    };
+                    reader.readAsDataURL(file);
+
+                    // Resize image in background
+                    try {
+                        file = await resizeImage(file);
+                        outfitPreview.querySelector('div').textContent = 'Image optimized!';
+                    } catch (err) {
+                        console.error('Failed to resize image:', err);
+                    }
 
                     // Update state
                     appState.outfitSource = 'upload';
@@ -958,15 +1050,6 @@ $csrfToken = Session::generateCSRFToken();
                     document.querySelectorAll('input[name="outfit_source"][value="default"]').forEach(radio => {
                         radio.checked = false;
                     });
-
-                    // Show preview
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        outfitPreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-                        outfitPreview.style.display = 'block';
-                        outfitUploadArea.classList.add('has-file');
-                    };
-                    reader.readAsDataURL(file);
 
                     // Auto-switch to upload tab
                     document.querySelector('[data-tab="outfit-upload"]').click();
@@ -1041,8 +1124,19 @@ $csrfToken = Session::generateCSRFToken();
                 generateBtn.disabled = true;
                 startProgressTimer();
 
-                // Submit form
+                // Submit form with resized images
                 const formData = new FormData(form);
+
+                // Replace file inputs with resized versions
+                if (appState.personSource === 'upload' && appState.personFile) {
+                    formData.delete('person_upload');
+                    formData.append('person_upload', appState.personFile);
+                }
+
+                if (appState.outfitSource === 'upload' && appState.outfitFile) {
+                    formData.delete('outfit_upload');
+                    formData.append('outfit_upload', appState.outfitFile);
+                }
 
                 try {
                     const response = await fetch('/generate.php', {
@@ -1068,9 +1162,11 @@ $csrfToken = Session::generateCSRFToken();
                 }
             });
 
-            // Progress timer function
+            // Progress timer function with optimistic UI
             let progressTimer = null;
             let progressStartTime = null;
+            let currentProgress = 0;
+            let fakeProgressTimer = null;
 
             function startProgressTimer() {
                 progressStartTime = Date.now();
@@ -1078,33 +1174,88 @@ $csrfToken = Session::generateCSRFToken();
                 const progressText = document.getElementById('progressText');
 
                 // Reset progress
+                currentProgress = 0;
                 progressBar.style.width = '0%';
-                progressText.textContent = '0% complete';
+                progressText.textContent = 'Uploading images...';
 
                 // Clear any existing timer
                 if (progressTimer) clearInterval(progressTimer);
+                if (fakeProgressTimer) clearInterval(fakeProgressTimer);
 
-                progressTimer = setInterval(() => {
-                    const elapsed = Date.now() - progressStartTime;
-                    const totalTime = 25000; // 25 seconds
-                    const progress = Math.min((elapsed / totalTime) * 100, 100);
+                // Start fake progress to 70% over 10 seconds
+                fakeProgressTimer = setInterval(() => {
+                    if (currentProgress < 70) {
+                        currentProgress = Math.min(70, currentProgress + 2);
+                        progressBar.style.width = currentProgress + '%';
 
-                    progressBar.style.width = progress + '%';
-
-                    if (progress >= 100) {
-                        progressText.textContent = 'finishing touches being applied...';
-                        clearInterval(progressTimer);
-                        progressTimer = null;
+                        // Update text based on progress
+                        if (currentProgress < 15) {
+                            progressText.textContent = 'Uploading images...';
+                        } else if (currentProgress < 30) {
+                            progressText.textContent = 'Analyzing your photo...';
+                        } else if (currentProgress < 50) {
+                            progressText.textContent = 'Processing outfit...';
+                        } else {
+                            progressText.textContent = 'Generating your fit...';
+                        }
                     } else {
-                        progressText.textContent = Math.round(progress) + '% complete';
+                        clearInterval(fakeProgressTimer);
+                        fakeProgressTimer = null;
                     }
-                }, 200); // Update every 200ms for smooth animation
+                }, 120); // Update every 120ms for smooth fake progress
+            }
+
+            function updateProgressFromJob(job) {
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+
+                // Use real progress if available
+                if (job.progress !== undefined) {
+                    currentProgress = job.progress;
+                    progressBar.style.width = currentProgress + '%';
+
+                    // Update text based on stage
+                    switch(job.progress_stage) {
+                        case 'UPLOADED':
+                            progressText.textContent = 'Images uploaded successfully...';
+                            break;
+                        case 'QUEUED':
+                            progressText.textContent = 'Queued for processing...';
+                            break;
+                        case 'PROCESSING':
+                            progressText.textContent = 'AI is generating your fit...';
+                            break;
+                        case 'POSTPROCESSING':
+                            progressText.textContent = 'Applying finishing touches...';
+                            break;
+                        case 'COMPLETE':
+                            progressText.textContent = 'Complete!';
+                            break;
+                        default:
+                            progressText.textContent = `${currentProgress}% complete`;
+                    }
+
+                    // Add ETA if available
+                    if (job.eta_seconds && job.eta_seconds > 0) {
+                        progressText.textContent += ` (${Math.ceil(job.eta_seconds)}s remaining)`;
+                    }
+                }
+
+                // Clear fake timer if real progress is ahead
+                if (fakeProgressTimer && currentProgress >= 70) {
+                    clearInterval(fakeProgressTimer);
+                    fakeProgressTimer = null;
+                }
             }
 
             function stopProgressTimer() {
                 if (progressTimer) {
                     clearInterval(progressTimer);
                     progressTimer = null;
+                }
+                if (fakeProgressTimer) {
+                    clearInterval(fakeProgressTimer);
+                    fakeProgressTimer = null;
                 }
             }
 
@@ -1137,10 +1288,11 @@ $csrfToken = Session::generateCSRFToken();
                 }
             }
 
-            // Poll job status
+            // Poll job status with adaptive polling rate
             async function pollJobStatus(jobId) {
                 const maxPolls = 120;
                 let pollCount = 0;
+                let pollDelay = 700; // Start with 700ms
 
                 const poll = async () => {
                     if (pollCount >= maxPolls) {
@@ -1155,23 +1307,37 @@ $csrfToken = Session::generateCSRFToken();
                         const response = await fetch(`/api/job_status.php?job_id=${jobId}`);
                         const data = await response.json();
 
-                        if (data.job && data.job.status === 'completed') {
-                            // Success! Show success state
-                            showSuccessState();
+                        if (data.job) {
+                            // Update progress with real data
+                            updateProgressFromJob(data.job);
 
-                            if (data.job.result && data.job.result.share_token) {
-                                // Redirect to share page immediately
-                                window.location.href = `/share/${data.job.result.share_token}?new=1`;
-                            } else if (data.job.result && data.job.result.result_url) {
-                                // For private photos, show success state and allow "Generate Another"
-                                // Success state is already shown, user can click "Generate Another"
+                            if (data.job.status === 'completed') {
+                                // Success! Show success state
+                                showSuccessState();
+
+                                if (data.job.result && data.job.result.share_token) {
+                                    // Redirect to share page immediately
+                                    setTimeout(() => {
+                                        window.location.href = `/share/${data.job.result.share_token}?new=1`;
+                                    }, 500);
+                                } else if (data.job.result && data.job.result.result_url) {
+                                    // For private photos, show success state and allow "Generate Another"
+                                    // Success state is already shown, user can click "Generate Another"
+                                }
+                            } else if (data.job.status === 'failed') {
+                                stopProgressTimer();
+                                throw new Error(data.job.error || 'Generation failed');
+                            } else {
+                                pollCount++;
+                                // Adaptive polling: increase delay over time (backoff)
+                                if (pollCount > 10) {
+                                    pollDelay = Math.min(2000, pollDelay + 100);
+                                }
+                                setTimeout(poll, pollDelay);
                             }
-                        } else if (data.job && data.job.status === 'failed') {
-                            stopProgressTimer();
-                            throw new Error(data.job.error || 'Generation failed');
                         } else {
                             pollCount++;
-                            setTimeout(poll, 5000);
+                            setTimeout(poll, pollDelay);
                         }
                     } catch (error) {
                         stopProgressTimer();
@@ -1181,7 +1347,8 @@ $csrfToken = Session::generateCSRFToken();
                     }
                 };
 
-                setTimeout(poll, 2000);
+                // Start polling after a short delay
+                setTimeout(poll, 1000);
             }
 
             // Show private result (when no share token)
