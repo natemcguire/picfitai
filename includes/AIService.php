@@ -499,22 +499,23 @@ class AIService {
             $imgHeight = $img->getImageHeight();
 
             // Watermark configuration
-            $watermarkText = 'PicFit.ai';
+            $watermarkText = '👗 picfit.ai';
             $fontSize = max(14, $imgWidth * 0.035); // ~3.5% of width
-            $padding = 26;
 
             // Create text watermark
             $draw = new ImagickDraw();
             $draw->setFillColor(new ImagickPixel('rgba(255,255,255,0.65)')); // white, 65% opacity
-
-            // Use default font for now (custom font can be added later if needed)
-            // Note: Custom fonts in Imagick can be finicky with file paths and permissions
-
             $draw->setFontSize($fontSize);
+
+            // Use southeast gravity with offset
             $draw->setGravity(Imagick::GRAVITY_SOUTHEAST);
 
-            // Add text to image
-            $img->annotateImage($draw, -$padding, -$padding, 0, $watermarkText);
+            // Position: 15% from right, 25% from bottom
+            $xOffset = $imgWidth * 0.15;
+            $yOffset = $imgHeight * 0.25;
+
+            // Add text to image - with SE gravity, positive values move left and up
+            $img->annotateImage($draw, $xOffset, $yOffset, 0, $watermarkText);
 
             // Set compression quality
             $img->setImageCompressionQuality(85);
@@ -545,7 +546,7 @@ class AIService {
     /**
      * Add watermark using GD (fallback method)
      */
-    private function addWatermarkGD(string $imageData, string $mimeType): string {
+    public function addWatermarkGD(string $imageData, string $mimeType): string {
         // Create image resource from data
         $image = imagecreatefromstring($imageData);
         if (!$image) {
@@ -556,9 +557,8 @@ class AIService {
         $height = imagesy($image);
 
         // Watermark configuration
-        $watermarkText = 'PicFit.ai';
+        $watermarkText = '👗 picfit.ai';
         $fontSize = max(14, $width * 0.035); // ~3.5% of width
-        $padding = 26;
 
         // Try to load custom font
         $fontPath = __DIR__ . '/../public/fonts/Inter-Bold.ttf';
@@ -576,9 +576,11 @@ class AIService {
             $textHeight = imagefontheight($fontSize);
         }
 
-        // Position in bottom-right corner
-        $x = $width - $textWidth - $padding;
-        $y = $height - $padding;
+        // Position: 15% from right, 25% from bottom
+        $xPadding = $width * 0.15;
+        $yPadding = $height * 0.25;
+        $x = $width - $textWidth - $xPadding;
+        $y = $height - $yPadding;
 
         // Add white text with transparency (alpha: 0 = opaque, 127 = transparent)
         $textColor = imagecolorallocatealpha($image, 255, 255, 255, 45); // white with 65% opacity
