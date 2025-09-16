@@ -269,6 +269,20 @@ $csrfToken = $user ? Session::generateCSRFToken() : '';
             margin-right: 8px;
         }
 
+        .special-message {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            font-weight: 700;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+
         .btn {
             display: inline-block;
             padding: 18px 40px;
@@ -485,6 +499,12 @@ $csrfToken = $user ? Session::generateCSRFToken() : '';
                                 <li>Best value per photo</li>
                             <?php endif; ?>
                         </ul>
+
+                        <?php if (!empty($plan['special_message'])): ?>
+                            <div class="special-message">
+                                <?= htmlspecialchars($plan['special_message']) ?>
+                            </div>
+                        <?php endif; ?>
 
                         <?php if ($user): ?>
                             <form method="POST">
