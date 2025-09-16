@@ -15,76 +15,101 @@ if (empty($shareToken)) {
     exit('Photo not found');
 }
 
-// Get the generation
+// Get the generation with all related data in a single optimized query
 $pdo = Database::getInstance();
+
+// Single combined query for all share page data
 $stmt = $pdo->prepare('
-    SELECT g.*, u.name as user_name
+    SELECT
+        g.*,
+        u.name as user_name,
+        -- Rating counts
+        COALESCE(ratings.likes, 0) as likes,
+        COALESCE(ratings.dislikes, 0) as dislikes,
+        COALESCE(ratings.total_ratings, 0) as total_ratings,
+        -- Navigation
+        prev_gen.share_token as prev_share_token,
+        next_gen.share_token as next_share_token,
+        -- User rating for this IP
+        user_rating.rating as user_rating
     FROM generations g
     JOIN users u ON g.user_id = u.id
+    LEFT JOIN (
+        SELECT
+            generation_id,
+            SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as likes,
+            SUM(CASE WHEN rating = -1 THEN 1 ELSE 0 END) as dislikes,
+            COUNT(*) as total_ratings
+        FROM photo_ratings
+        GROUP BY generation_id
+    ) ratings ON g.id = ratings.generation_id
+    LEFT JOIN (
+        SELECT share_token, id
+        FROM generations
+        WHERE is_public = 1 AND status = "completed" AND share_token IS NOT NULL
+        ORDER BY id DESC
+    ) prev_gen ON prev_gen.id < g.id
+    LEFT JOIN (
+        SELECT share_token, id
+        FROM generations
+        WHERE is_public = 1 AND status = "completed" AND share_token IS NOT NULL
+        ORDER BY id ASC
+    ) next_gen ON next_gen.id > g.id
+    LEFT JOIN photo_ratings user_rating ON user_rating.generation_id = g.id
+        AND user_rating.ip_address = ?
     WHERE g.share_token = ? AND g.status = "completed" AND g.is_public = 1
+    GROUP BY g.id
+    LIMIT 1
 ');
-$stmt->execute([$shareToken]);
-$generation = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$generation) {
+$ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+$stmt->execute([$ipAddress, $shareToken]);
+$data = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$data) {
     http_response_code(404);
     exit('Photo not found or is private');
 }
 
-// Get next/previous public photos for navigation
-$stmt = $pdo->prepare('
-    SELECT share_token
-    FROM generations
-    WHERE is_public = 1 AND status = "completed" AND share_token IS NOT NULL
-    AND id > ?
-    ORDER BY id ASC
-    LIMIT 1
-');
-$stmt->execute([$generation['id']]);
-$nextPhoto = $stmt->fetch(PDO::FETCH_ASSOC);
+// Extract data from combined result
+$generation = [
+    'id' => $data['id'],
+    'user_id' => $data['user_id'],
+    'result_url' => $data['result_url'],
+    'share_token' => $data['share_token'],
+    'created_at' => $data['created_at'],
+    'user_name' => $data['user_name']
+];
 
-$stmt = $pdo->prepare('
-    SELECT share_token
-    FROM generations
-    WHERE is_public = 1 AND status = "completed" AND share_token IS NOT NULL
-    AND id < ?
-    ORDER BY id DESC
-    LIMIT 1
-');
-$stmt->execute([$generation['id']]);
-$prevPhoto = $stmt->fetch(PDO::FETCH_ASSOC);
+$ratings = [
+    'likes' => (int)$data['likes'],
+    'dislikes' => (int)$data['dislikes'],
+    'total_ratings' => (int)$data['total_ratings']
+];
 
-// Get rating counts for this photo
-$stmt = $pdo->prepare('
-    SELECT
-        SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as likes,
-        SUM(CASE WHEN rating = -1 THEN 1 ELSE 0 END) as dislikes,
-        COUNT(*) as total_ratings
-    FROM photo_ratings
-    WHERE generation_id = ?
-');
-$stmt->execute([$generation['id']]);
-$ratings = $stmt->fetch(PDO::FETCH_ASSOC);
-
-// Check if current user has already rated this photo
-$userRating = null;
-$ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
-if ($ipAddress) {
-    $stmt = $pdo->prepare('SELECT rating FROM photo_ratings WHERE generation_id = ? AND ip_address = ?');
-    $stmt->execute([$generation['id'], $ipAddress]);
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($result) {
-        $userRating = (int) $result['rating'];
-    }
-}
+$nextPhoto = $data['next_share_token'] ? ['share_token' => $data['next_share_token']] : null;
+$prevPhoto = $data['prev_share_token'] ? ['share_token' => $data['prev_share_token']] : null;
+$userRating = $data['user_rating'] ? (int)$data['user_rating'] : null;
 
 $pageTitle = 'PicFit.ai - AI Virtual Try-On';
 $shareUrl = 'https://picfit.ai/share/' . $shareToken;
 $imageUrl = $generation['result_url'];
 
-// Ensure image URL is absolute for social media sharing
-if (!str_starts_with($imageUrl, 'http')) {
-    $imageUrl = 'https://picfit.ai/' . ltrim($imageUrl, '/');
+// Handle CDN URLs and fallback to local URLs
+if ($imageUrl) {
+    if (str_starts_with($imageUrl, 'https://cdn.picfit.ai/')) {
+        // CDN URL - check if CDN is working, otherwise fallback to local
+        $localPath = str_replace('https://cdn.picfit.ai/generated/', '/generated/', $imageUrl);
+        $localFile = __DIR__ . $localPath;
+
+        if (file_exists($localFile)) {
+            // Use local URL instead of CDN for now
+            $imageUrl = 'https://picfit.ai' . $localPath;
+        }
+    } elseif (!str_starts_with($imageUrl, 'http')) {
+        // Relative URL - make it absolute
+        $imageUrl = 'https://picfit.ai/' . ltrim($imageUrl, '/');
+    }
 }
 
 // Create dedicated image URLs for different platforms
@@ -704,8 +729,8 @@ if (file_exists($localImagePath)) {
         }
 
         .first-rating-badge {
-            display: inline-block;
-            margin-top: 12px;
+            display: block;
+            margin: 12px auto 0;
             padding: 8px 14px;
             border-radius: 999px;
             background: linear-gradient(45deg, #fddb92, #d1fdff);
@@ -714,6 +739,7 @@ if (file_exists($localImagePath)) {
             border: 2px solid rgba(255, 255, 255, 0.7);
             box-shadow: 0 6px 16px rgba(0,0,0,0.1), 0 0 24px rgba(173, 216, 230, 0.3);
             text-align: center;
+            width: fit-content;
         }
 
         .rating-emoji {

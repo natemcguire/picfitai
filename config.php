@@ -54,9 +54,9 @@ class Config {
             
             // Plans (credits and prices in cents)
             'stripe_plans' => [
-                'starter' => ['credits' => 10, 'price' => 900, 'name' => '10 Credits - Starter'],
-                'popular' => ['credits' => 50, 'price' => 2900, 'name' => '50 Credits - Popular'],
-                'pro' => ['credits' => 250, 'price' => 9900, 'name' => '250 Credits - Pro']
+                'starter' => ['credits' => 10, 'price' => 299, 'name' => '10 Credits - Starter'],
+                'popular' => ['credits' => 50, 'price' => 999, 'name' => '50 Credits - Popular'],
+                'pro' => ['credits' => 250, 'price' => 4999, 'name' => '250 Credits - Pro', 'special_message' => 'THANKS FOR SUPPORTING YOUR LOCAL DEVELOPER']
             ]
         ];
         

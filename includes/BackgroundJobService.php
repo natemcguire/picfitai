@@ -317,8 +317,22 @@ class BackgroundJobService {
             ]);
         }
 
-        $stmt = $pdo->prepare('SELECT job_id FROM background_jobs WHERE status = "queued" ORDER BY created_at ASC LIMIT 10');
-        $stmt->execute();
+        // Process more jobs at once with paid Gemini tier
+        $batchSize = 50; // Increased from 10
+        $stmt = $pdo->prepare('
+            SELECT job_id
+            FROM background_jobs
+            WHERE status = "queued"
+            ORDER BY
+                CASE
+                    WHEN user_id IN (SELECT id FROM users WHERE credits_remaining >= 50) THEN 0
+                    WHEN user_id IN (SELECT id FROM users WHERE credits_remaining >= 10) THEN 1
+                    ELSE 2
+                END,
+                created_at ASC
+            LIMIT ?
+        ');
+        $stmt->execute([$batchSize]);
         $jobs = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
         $processed = 0;

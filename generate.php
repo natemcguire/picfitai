@@ -33,7 +33,7 @@ foreach ($userPhotos as &$photo) {
     $photo['url'] = UserPhotoService::getPhotoUrl($photo['filename']);
 }
 
-// Get outfit collections and options
+// Get outfit collections and options with caching
 $collections = [];
 $outfitOptions = [];
 $outfitsDir = __DIR__ . '/images/outfits/';
@@ -48,49 +48,96 @@ $featuredCollections = [
     ]
 ];
 
-// Get regular outfits (not in collections)
-if (is_dir($outfitsDir) && is_readable($outfitsDir)) {
-    $outfitFiles = glob($outfitsDir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE);
-    foreach ($outfitFiles as $filePath) {
-        if (is_readable($filePath)) {
-            $filename = basename($filePath);
-            $outfitOptions[] = [
-                'filename' => $filename,
-                'url' => '/images/outfits/' . $filename,
-                'path' => $filePath,
-                'name' => ucfirst(pathinfo($filename, PATHINFO_FILENAME)),
-                'collection' => null
-            ];
+// Cache key for outfit data
+$cacheKey = 'outfit_collections_v2';
+$cacheFile = __DIR__ . '/cache/' . $cacheKey . '.json';
+$cacheEnabled = Config::get('outfit_cache_enabled', true);
+$cacheMaxAge = 3600; // 1 hour
+
+// Try to load from cache first
+$outfitData = null;
+if ($cacheEnabled && file_exists($cacheFile)) {
+    $cacheAge = time() - filemtime($cacheFile);
+    if ($cacheAge < $cacheMaxAge) {
+        $cachedData = file_get_contents($cacheFile);
+        if ($cachedData !== false) {
+            $outfitData = json_decode($cachedData, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $collections = $outfitData['collections'] ?? [];
+                $outfitOptions = $outfitData['outfitOptions'] ?? [];
+            }
         }
     }
 }
 
-// Get collection outfits
-foreach ($featuredCollections as $collectionId => $collectionInfo) {
-    $collectionDir = $outfitsDir . $collectionId . '/';
-    if (is_dir($collectionDir) && is_readable($collectionDir)) {
-        $collectionOutfits = [];
-        $collectionFiles = glob($collectionDir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE);
+// Build outfit data if not cached or cache invalid
+if ($outfitData === null) {
+    // Ensure cache directory exists
+    $cacheDir = dirname($cacheFile);
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0755, true);
+    }
 
-        foreach ($collectionFiles as $filePath) {
-            if (is_readable($filePath)) {
-                $filename = basename($filePath);
-                $collectionOutfits[] = [
+    // Optimized: Single directory scan for regular outfits
+    if (is_dir($outfitsDir)) {
+        $iterator = new DirectoryIterator($outfitsDir);
+        foreach ($iterator as $fileInfo) {
+            if ($fileInfo->isDot() || $fileInfo->isDir()) continue;
+
+            $extension = strtolower($fileInfo->getExtension());
+            if (in_array($extension, ['jpg', 'jpeg', 'png', 'webp'])) {
+                $filename = $fileInfo->getFilename();
+                $outfitOptions[] = [
                     'filename' => $filename,
-                    'url' => '/images/outfits/' . $collectionId . '/' . $filename,
-                    'path' => $filePath,
+                    'url' => '/images/outfits/' . $filename,
+                    'path' => $fileInfo->getPathname(),
                     'name' => ucfirst(pathinfo($filename, PATHINFO_FILENAME)),
-                    'collection' => $collectionId
+                    'collection' => null
                 ];
             }
         }
+    }
 
-        if (!empty($collectionOutfits)) {
-            $collections[$collectionId] = array_merge($collectionInfo, [
-                'id' => $collectionId,
-                'outfits' => $collectionOutfits
-            ]);
+    // Optimized: Process collections with single scan each
+    foreach ($featuredCollections as $collectionId => $collectionInfo) {
+        $collectionDir = $outfitsDir . $collectionId . '/';
+        if (is_dir($collectionDir)) {
+            $collectionOutfits = [];
+            $iterator = new DirectoryIterator($collectionDir);
+
+            foreach ($iterator as $fileInfo) {
+                if ($fileInfo->isDot()) continue;
+
+                $extension = strtolower($fileInfo->getExtension());
+                if (in_array($extension, ['jpg', 'jpeg', 'png', 'webp'])) {
+                    $filename = $fileInfo->getFilename();
+                    $collectionOutfits[] = [
+                        'filename' => $filename,
+                        'url' => '/images/outfits/' . $collectionId . '/' . $filename,
+                        'path' => $fileInfo->getPathname(),
+                        'name' => ucfirst(pathinfo($filename, PATHINFO_FILENAME)),
+                        'collection' => $collectionId
+                    ];
+                }
+            }
+
+            if (!empty($collectionOutfits)) {
+                $collections[$collectionId] = array_merge($collectionInfo, [
+                    'id' => $collectionId,
+                    'outfits' => $collectionOutfits
+                ]);
+            }
         }
+    }
+
+    // Cache the results
+    if ($cacheEnabled) {
+        $cacheData = [
+            'collections' => $collections,
+            'outfitOptions' => $outfitOptions,
+            'cached_at' => time()
+        ];
+        @file_put_contents($cacheFile, json_encode($cacheData, JSON_PRETTY_PRINT));
     }
 }
 
@@ -119,6 +166,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($credits < $creditCost) {
             throw new Exception('Insufficient credits. Please purchase more credits to continue.');
+        }
+
+        // Rate limiting check
+        $pdo = Database::getInstance();
+        $ipAddress = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+
+        // Check user rate limit (based on tier)
+        $userTier = $credits >= 50 ? 'premium' : ($credits >= 10 ? 'paid' : 'free');
+        $userLimit = match($userTier) {
+            'premium' => 20,  // 20 per hour for premium users
+            'paid' => 10,     // 10 per hour for paid users
+            'free' => 3       // 3 per hour for free users
+        };
+
+        $stmt = $pdo->prepare('
+            SELECT COUNT(*) FROM generations
+            WHERE user_id = ?
+            AND created_at > datetime("now", "-1 hour")
+        ');
+        $stmt->execute([$user['id']]);
+        $recentGenerations = (int)$stmt->fetchColumn();
+
+        if ($recentGenerations >= $userLimit) {
+            throw new Exception("Rate limit exceeded. You can generate up to {$userLimit} images per hour. Please try again later.");
+        }
+
+        // Check IP rate limit (anti-abuse) - simplified approach
+        if ($ipAddress) {
+            $ipKey = 'ip_' . md5($ipAddress);
+            $currentHour = time() - (time() % 3600); // Round to current hour
+
+            // Check current requests for this IP in this hour
+            $stmt = $pdo->prepare('
+                SELECT requests FROM rate_limits
+                WHERE id = ? AND window_start = ?
+            ');
+            $stmt->execute([$ipKey, $currentHour]);
+            $currentRequests = (int)$stmt->fetchColumn();
+
+            if ($currentRequests >= 30) {
+                throw new Exception("Too many requests from this network. Please try again later.");
+            }
+
+            // Track this request
+            $pdo->prepare('
+                INSERT OR REPLACE INTO rate_limits (id, requests, window_start, created_at)
+                VALUES (?, ? + 1, ?, CURRENT_TIMESTAMP)
+            ')->execute([$ipKey, $currentRequests, $currentHour]);
         }
 
         // Handle person photo selection
@@ -193,24 +288,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Please select or upload an outfit');
         }
 
-        // Queue for background processing
-        $jobId = BackgroundJobService::queueGeneration($user['id'], $standingPhotos, $outfitPhoto, $isPublic);
+        // DIRECT PROCESSING ONLY - No more background jobs!
+        try {
+            // Set execution time for processing
+            set_time_limit(60);
 
-        $costText = $isPublic ? '0.5 credits' : '1 credit';
-        $privacyText = $isPublic ? 'public' : 'private';
-        $success = "Generation started! Processing your {$privacyText} photo ({$costText}).";
+            // Process immediately
+            $aiService = new AIService();
+            $result = $aiService->generateFit($user['id'], $standingPhotos, $outfitPhoto, $isPublic);
 
-        // For AJAX requests, return JSON response
-        if (isset($_POST['ajax']) && $_POST['ajax'] === '1') {
-            echo json_encode([
-                'success' => true,
-                'message' => $success,
-                'job_id' => $jobId,
-                'background' => true,
-                'is_public' => $isPublic,
-                'credit_cost' => $creditCost
-            ]);
-            exit;
+            $costText = $isPublic ? '0.5 credits' : '1 credit';
+            $privacyText = $isPublic ? 'public' : 'private';
+            $success = "Your {$privacyText} photo is ready! ({$costText} used)";
+
+            // For AJAX requests, return immediate result
+            if (isset($_POST['ajax']) && $_POST['ajax'] === '1') {
+                echo json_encode([
+                    'success' => true,
+                    'message' => $success,
+                    'result_url' => $result['result_url'],
+                    'share_url' => $result['share_url'] ?? null,
+                    'is_public' => $isPublic,
+                    'credit_cost' => $creditCost,
+                    'processing_time' => $result['processing_time'] ?? 0
+                ]);
+                exit;
+            }
+
+        } catch (Exception $e) {
+            throw $e; // No fallback - direct processing only
         }
 
     } catch (Exception $e) {
@@ -1444,7 +1550,7 @@ $csrfToken = Session::generateCSRFToken();
                 // Show loading
                 loadingOverlay.classList.add('active');
                 generateBtn.disabled = true;
-                startProgressTimer();
+                startDirectProcessingProgress();
 
                 // Submit form with resized images
                 const formData = new FormData(form);
@@ -1470,9 +1576,19 @@ $csrfToken = Session::generateCSRFToken();
 
                     if (data.success) {
                         showMessage(data.message, 'success');
-                        if (data.job_id) {
-                            pollJobStatus(data.job_id);
-                        }
+
+                        // Update progress to 100%
+                        updateProgress(100, 'COMPLETE');
+
+                        // Show success state
+                        setTimeout(() => {
+                            showSuccessState({
+                                result_url: data.result_url,
+                                share_url: data.share_url,
+                                is_public: data.is_public,
+                                processing_time: data.processing_time
+                            });
+                        }, 500);
                     } else {
                         throw new Error(data.error || 'Generation failed');
                     }
@@ -1488,6 +1604,29 @@ $csrfToken = Session::generateCSRFToken();
             let currentProgress = 0;
             let progressInterval = null;
             let startTime = null;
+
+            function updateProgress(progress, text) {
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+
+                progressBar.style.width = progress + '%';
+                progressText.textContent = text;
+            }
+
+            function startDirectProcessingProgress() {
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+
+                // Reset progress
+                progressBar.style.width = '0%';
+                progressText.textContent = 'Optimizing images...';
+
+                // Simple progress simulation for direct processing
+                setTimeout(() => updateProgress(20, 'Uploading to AI...'), 300);
+                setTimeout(() => updateProgress(40, 'AI processing your fit...'), 1000);
+                setTimeout(() => updateProgress(70, 'Generating result...'), 3000);
+                setTimeout(() => updateProgress(90, 'Almost done...'), 8000);
+            }
 
             function startProgressTimer() {
                 const progressBar = document.getElementById('progressBar');
@@ -1571,10 +1710,8 @@ $csrfToken = Session::generateCSRFToken();
             }
 
             function stopProgressTimer() {
-                if (progressInterval) {
-                    clearInterval(progressInterval);
-                    progressInterval = null;
-                }
+                // No intervals to clear in direct processing mode
+                // This function is kept for compatibility
             }
 
             function showSuccessState(result) {
@@ -1584,15 +1721,28 @@ $csrfToken = Session::generateCSRFToken();
                 // Show the result image in the modal
                 if (result && result.result_url) {
                     const resultPreview = document.getElementById('resultPreview');
-                    resultPreview.innerHTML = `<img src="${result.result_url}" alt="AI Generated Try-On Result">`;
+
+                    // Ensure image URL is absolute for proper display
+                    let imageUrl = result.result_url;
+                    if (imageUrl.startsWith('/')) {
+                        // Convert relative URL to absolute
+                        imageUrl = window.location.origin + imageUrl;
+                    }
+
+                    resultPreview.innerHTML = `<img src="${imageUrl}" alt="AI Generated Try-On Result" style="width: 300px; height: 300px; object-fit: cover; object-position: top; border-radius: 15px; box-shadow: 0 8px 25px rgba(0,0,0,0.15);" onload="console.log('Image loaded successfully')" onerror="console.error('Failed to load image:', this.src)">`;
 
                     // Set up "See Full Size" button
                     const seeFullSizeBtn = document.getElementById('seeFullSizeBtn');
                     if (result.share_token) {
+                        // Go to share page for public photos
                         seeFullSizeBtn.onclick = () => window.location.href = `/share/${result.share_token}?new=1`;
                     } else {
-                        // For private photos, just open in new tab
-                        seeFullSizeBtn.onclick = () => window.open(result.result_url, '_blank');
+                        // For private photos, also go to share page if available, otherwise open image
+                        if (result.share_url) {
+                            seeFullSizeBtn.onclick = () => window.location.href = result.share_url;
+                        } else {
+                            seeFullSizeBtn.onclick = () => window.open(result.result_url, '_blank');
+                        }
                     }
                 }
 

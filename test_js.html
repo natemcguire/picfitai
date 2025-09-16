@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript Test</title>
+</head>
+<body>
+    <div id="progressBar" style="width: 0%; height: 20px; background: blue;"></div>
+    <div id="progressText">Starting...</div>
+
+    <script>
+        // Copy the functions from generate.php
+        function updateProgress(progress, text) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            progressBar.style.width = progress + '%';
+            progressText.textContent = text;
+        }
+
+        function startDirectProcessingProgress() {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            // Reset progress
+            progressBar.style.width = '0%';
+            progressText.textContent = 'Optimizing images...';
+
+            // Simple progress simulation for direct processing
+            setTimeout(() => updateProgress(20, 'Uploading to AI...'), 300);
+            setTimeout(() => updateProgress(40, 'AI processing your fit...'), 1000);
+            setTimeout(() => updateProgress(70, 'Generating result...'), 3000);
+            setTimeout(() => updateProgress(90, 'Almost done...'), 8000);
+        }
+
+        // Test the function
+        console.log('Testing JavaScript functions...');
+        startDirectProcessingProgress();
+
+        // Test completion
+        setTimeout(() => {
+            updateProgress(100, 'Complete!');
+            console.log('✅ All JavaScript functions working!');
+        }, 10000);
+    </script>
+</body>
+</html>

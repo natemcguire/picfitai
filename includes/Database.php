@@ -188,6 +188,7 @@ class Database {
         
         // Create indexes for performance
         $indexes = [
+            // Existing indexes
             'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
             'CREATE INDEX IF NOT EXISTS idx_users_oauth ON users(oauth_provider, oauth_id)',
             'CREATE INDEX IF NOT EXISTS idx_credit_transactions_user ON credit_transactions(user_id)',
@@ -206,7 +207,25 @@ class Database {
             'CREATE INDEX IF NOT EXISTS idx_background_jobs_job_id ON background_jobs(job_id)',
             'CREATE INDEX IF NOT EXISTS idx_background_jobs_hash ON background_jobs(input_hash)',
             'CREATE INDEX IF NOT EXISTS idx_user_photos_user ON user_photos(user_id)',
-            'CREATE INDEX IF NOT EXISTS idx_user_photos_primary ON user_photos(user_id, is_primary)'
+            'CREATE INDEX IF NOT EXISTS idx_user_photos_primary ON user_photos(user_id, is_primary)',
+
+            // New performance indexes for optimized queries
+            'CREATE INDEX IF NOT EXISTS idx_generations_share_public ON generations(share_token, status, is_public)',
+            'CREATE INDEX IF NOT EXISTS idx_generations_public_nav ON generations(is_public, status, share_token, id)',
+            'CREATE INDEX IF NOT EXISTS idx_photo_ratings_generation ON photo_ratings(generation_id)',
+            'CREATE INDEX IF NOT EXISTS idx_photo_ratings_ip ON photo_ratings(generation_id, ip_address)',
+            'CREATE INDEX IF NOT EXISTS idx_generations_completed_public ON generations(status, is_public, created_at)',
+            'CREATE INDEX IF NOT EXISTS idx_background_jobs_type_status ON background_jobs(job_type, status, created_at)',
+            'CREATE INDEX IF NOT EXISTS idx_generations_cache_lookup ON generations(input_hash, status, created_at)',
+            'CREATE INDEX IF NOT EXISTS idx_generations_base_name ON generations(base_name)',
+
+            // Composite indexes for gallery queries
+            'CREATE INDEX IF NOT EXISTS idx_generations_gallery ON generations(status, is_public, share_token, id)',
+            'CREATE INDEX IF NOT EXISTS idx_photo_ratings_agg ON photo_ratings(generation_id, rating)',
+
+            // Indexes for cleanup operations
+            'CREATE INDEX IF NOT EXISTS idx_background_jobs_cleanup ON background_jobs(status, started_at)',
+            'CREATE INDEX IF NOT EXISTS idx_generations_cleanup ON generations(status, created_at)'
         ];
         
         foreach ($indexes as $sql) {

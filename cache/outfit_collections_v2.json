@@ -1,0 +1,394 @@
+{
+    "collections": {
+        "theemmys": {
+            "name": "The Emmy's",
+            "icon": "\u2b50",
+            "featured": true,
+            "description": "Red carpet looks from the Emmy Awards",
+            "id": "theemmys",
+            "outfits": [
+                {
+                    "filename": "Emmy Adam Brody.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Adam Brody.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Adam Brody.webp",
+                    "name": "Emmy Adam Brody",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Angela.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Angela.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Angela.webp",
+                    "name": "Emmy Angela",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Avan.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Avan.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Avan.webp",
+                    "name": "Emmy Avan",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Brian.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Brian.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Brian.webp",
+                    "name": "Emmy Brian",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Britt Lower.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Britt Lower.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Britt Lower.webp",
+                    "name": "Emmy Britt Lower",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Brittany.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Brittany.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Brittany.webp",
+                    "name": "Emmy Brittany",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Christopher.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Christopher.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Christopher.webp",
+                    "name": "Emmy Christopher",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Cristin.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Cristin.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Cristin.webp",
+                    "name": "Emmy Cristin",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Garcelle.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Garcelle.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Garcelle.webp",
+                    "name": "Emmy Garcelle",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Gina.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Gina.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Gina.webp",
+                    "name": "Emmy Gina",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Hunter.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Hunter.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Hunter.webp",
+                    "name": "Emmy Hunter",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy James.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy James.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy James.webp",
+                    "name": "Emmy James",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Jeff.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Jeff.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Jeff.webp",
+                    "name": "Emmy Jeff",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Jude Law.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Jude Law.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Jude Law.webp",
+                    "name": "Emmy Jude Law",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Julianne Nicholson.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Julianne Nicholson.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Julianne Nicholson.webp",
+                    "name": "Emmy Julianne Nicholson",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Katherine LaNasa.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Katherine LaNasa.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Katherine LaNasa.webp",
+                    "name": "Emmy Katherine LaNasa",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Kristen.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Kristen.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Kristen.webp",
+                    "name": "Emmy Kristen",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Lainey.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Lainey.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Lainey.webp",
+                    "name": "Emmy Lainey",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Leighton.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Leighton.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Leighton.webp",
+                    "name": "Emmy Leighton",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Leslie.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Leslie.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Leslie.webp",
+                    "name": "Emmy Leslie",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Lisa.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Lisa.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Lisa.webp",
+                    "name": "Emmy Lisa",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Mariska.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Mariska.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Mariska.webp",
+                    "name": "Emmy Mariska",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Meghann.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Meghann.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Meghann.webp",
+                    "name": "Emmy Meghann",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Michael.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Michael.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Michael.webp",
+                    "name": "Emmy Michael",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Ohara.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Ohara.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Ohara.webp",
+                    "name": "Emmy Ohara",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Parker.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Parker.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Parker.webp",
+                    "name": "Emmy Parker",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Sam.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Sam.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Sam.webp",
+                    "name": "Emmy Sam",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Sarah Paulson.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Sarah Paulson.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Sarah Paulson.webp",
+                    "name": "Emmy Sarah Paulson",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Scarlett.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Scarlett.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Scarlett.webp",
+                    "name": "Emmy Scarlett",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Selena.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Selena.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Selena.webp",
+                    "name": "Emmy Selena",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Sheryl.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Sheryl.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Sheryl.webp",
+                    "name": "Emmy Sheryl",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Sydney Sweeney.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Sydney Sweeney.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Sydney Sweeney.webp",
+                    "name": "Emmy Sydney Sweeney",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Twins.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Twins.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Twins.webp",
+                    "name": "Emmy Twins",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Uzo.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Uzo.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Uzo.webp",
+                    "name": "Emmy Uzo",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Emmy Wednesday.webp",
+                    "url": "\/images\/outfits\/theemmys\/Emmy Wednesday.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Emmy Wednesday.webp",
+                    "name": "Emmy Wednesday",
+                    "collection": "theemmys"
+                },
+                {
+                    "filename": "Lisa Emmy.webp",
+                    "url": "\/images\/outfits\/theemmys\/Lisa Emmy.webp",
+                    "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/theemmys\/Lisa Emmy.webp",
+                    "name": "Lisa Emmy",
+                    "collection": "theemmys"
+                }
+            ]
+        }
+    },
+    "outfitOptions": [
+        {
+            "filename": "Girl outfit 1.png",
+            "url": "\/images\/outfits\/Girl outfit 1.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Girl outfit 1.png",
+            "name": "Girl outfit 1",
+            "collection": null
+        },
+        {
+            "filename": "Girl outfit 2.png",
+            "url": "\/images\/outfits\/Girl outfit 2.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Girl outfit 2.png",
+            "name": "Girl outfit 2",
+            "collection": null
+        },
+        {
+            "filename": "Girl outfit 3.png",
+            "url": "\/images\/outfits\/Girl outfit 3.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Girl outfit 3.png",
+            "name": "Girl outfit 3",
+            "collection": null
+        },
+        {
+            "filename": "Stripes 1.png",
+            "url": "\/images\/outfits\/Stripes 1.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Stripes 1.png",
+            "name": "Stripes 1",
+            "collection": null
+        },
+        {
+            "filename": "Stripes 2.png",
+            "url": "\/images\/outfits\/Stripes 2.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Stripes 2.png",
+            "name": "Stripes 2",
+            "collection": null
+        },
+        {
+            "filename": "outfit.png",
+            "url": "\/images\/outfits\/outfit.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/outfit.png",
+            "name": "Outfit",
+            "collection": null
+        },
+        {
+            "filename": "outfit-girl-3.png",
+            "url": "\/images\/outfits\/outfit-girl-3.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/outfit-girl-3.png",
+            "name": "Outfit-girl-3",
+            "collection": null
+        },
+        {
+            "filename": "Astronaut.png",
+            "url": "\/images\/outfits\/Astronaut.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Astronaut.png",
+            "name": "Astronaut",
+            "collection": null
+        },
+        {
+            "filename": "Chicken.png",
+            "url": "\/images\/outfits\/Chicken.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Chicken.png",
+            "name": "Chicken",
+            "collection": null
+        },
+        {
+            "filename": "Cinderellla.png",
+            "url": "\/images\/outfits\/Cinderellla.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Cinderellla.png",
+            "name": "Cinderellla",
+            "collection": null
+        },
+        {
+            "filename": "NASA.png",
+            "url": "\/images\/outfits\/NASA.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/NASA.png",
+            "name": "NASA",
+            "collection": null
+        },
+        {
+            "filename": "Tux.png",
+            "url": "\/images\/outfits\/Tux.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Tux.png",
+            "name": "Tux",
+            "collection": null
+        },
+        {
+            "filename": "Wedding.png",
+            "url": "\/images\/outfits\/Wedding.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Wedding.png",
+            "name": "Wedding",
+            "collection": null
+        },
+        {
+            "filename": "Bikini.png",
+            "url": "\/images\/outfits\/Bikini.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Bikini.png",
+            "name": "Bikini",
+            "collection": null
+        },
+        {
+            "filename": "Blue Suit.png",
+            "url": "\/images\/outfits\/Blue Suit.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Blue Suit.png",
+            "name": "Blue Suit",
+            "collection": null
+        },
+        {
+            "filename": "Casual Girl.png",
+            "url": "\/images\/outfits\/Casual Girl.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Casual Girl.png",
+            "name": "Casual Girl",
+            "collection": null
+        },
+        {
+            "filename": "Butler.png",
+            "url": "\/images\/outfits\/Butler.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Butler.png",
+            "name": "Butler",
+            "collection": null
+        },
+        {
+            "filename": "Track.png",
+            "url": "\/images\/outfits\/Track.png",
+            "path": "\/home\/natemcguirellc\/Projects\/picfitai\/images\/outfits\/Track.png",
+            "name": "Track",
+            "collection": null
+        }
+    ],
+    "cached_at": 1758064824
+}
