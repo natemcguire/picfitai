@@ -82,13 +82,14 @@ class AIService {
         $outfitB64 = $this->imageToBase64($optimizedOutfit);
 
         // Single combined prompt
-        $prompt = "You are a professional fashion AI. Create a photorealistic SQUARE FORMAT image (1:1 aspect ratio) showing the person from the first image wearing the outfit from the second image.
+        $prompt = "You are a professional fashion AI. Create a photorealistic SQUARE FORMAT image (1:1 aspect ratio) showing the person from the first image wearing the outfit from the second image. Pay special attention to the first image's person's face - the output should have their face and no one else. Ignore the background, and try your best to match body type and size based on their photo provided. If they only provide a face photo, make it look proportional to their photo. 
 
 CRITICAL REQUIREMENTS:
 1. PRESERVE IDENTITY: Match the exact facial features, skin tone, hair, and body proportions of the person in the first photo
-2. EXTRACT OUTFIT: From the second image, take ONLY the clothing items (ignore any people/faces in that image if present)
+2. EXTRACT OUTFIT: From the second image, take ONLY the clothing items (ignore any people/faces in that image if present). The picture could be an outfit of individual clothes items, or a person wearing an outfit. Either way, your job is to identify the items in the image and form into an 'outfit'. This outfit is what you will apply to the first person.
 3. NATURAL PROPORTIONS: Ensure head, neck, and body are proportionally correct
 4. EXACT DETAILS: Preserve exact style - if sleeveless, keep sleeveless; preserve cuts, patterns, colors exactly
+5. Double check you aren't using any famous people's faces in the output.
 
 Frame as a square fashion photo with natural outdoor lighting. Generate ONLY the final image, no text.";
 
