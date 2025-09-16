@@ -90,6 +90,7 @@ CRITICAL REQUIREMENTS:
 3. NATURAL PROPORTIONS: Ensure head, neck, and body are proportionally correct
 4. EXACT DETAILS: Preserve exact style - if sleeveless, keep sleeveless; preserve cuts, patterns, colors exactly
 5. Double check you aren't using any famous people's faces in the output.
+6. Make sure the output image is the person's full body, even if only provided a face photo.
 
 Frame as a square fashion photo with natural outdoor lighting. Generate ONLY the final image, no text.";
 
