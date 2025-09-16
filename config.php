@@ -51,6 +51,10 @@ class Config {
             'max_standing_photos' => 5,
             'free_credits_per_user' => 20,
             'enable_cache' => false, // Set to false for development, true for production
+
+            // CDN Configuration
+            'cdn_enabled' => getenv('CDN_ENABLED') ?: false,
+            'cdn_domain' => getenv('CDN_DOMAIN') ?: 'cdn.picfit.ai',
             
             // Plans (credits and prices in cents)
             'stripe_plans' => [

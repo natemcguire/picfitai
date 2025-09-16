@@ -361,7 +361,7 @@ $previousGeneration = $recentGenerations[1] ?? null;
 
                 foreach ($repeatedImages as $gen):
             ?>
-                <img src="<?= htmlspecialchars($gen['result_url']) ?>" alt="Generated outfit" class="gallery-item" />
+                <img src="<?= htmlspecialchars(CDNService::getImageUrl($gen['result_url'])) ?>" alt="Generated outfit" class="gallery-item" />
             <?php
                 endforeach;
             }
@@ -388,7 +388,7 @@ $previousGeneration = $recentGenerations[1] ?? null;
             <?php if ($featuredGeneration): ?>
                 <div class="featured-container" onclick="navigateToFeatured()">
                     <div class="featured-photo">
-                        <img src="<?= htmlspecialchars($featuredGeneration['result_url']) ?>" alt="Latest AI-generated outfit" />
+                        <img src="<?= htmlspecialchars(CDNService::getImageUrl($featuredGeneration['result_url'])) ?>" alt="Latest AI-generated outfit" />
                         <button class="rate-button" onclick="event.stopPropagation(); navigateToFeatured();">Rate This Fit</button>
                     </div>
                 </div>

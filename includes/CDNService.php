@@ -9,7 +9,7 @@ class CDNService {
     public static function init(): void {
         // Check if CDN is configured
         self::$cdnDomain = Config::get('cdn_domain', 'cdn.picfit.ai');
-        self::$cdnEnabled = Config::get('cdn_enabled', true);
+        self::$cdnEnabled = (bool) Config::get('cdn_enabled', true);
     }
 
     /**

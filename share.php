@@ -95,22 +95,8 @@ $pageTitle = 'PicFit.ai - AI Virtual Try-On';
 $shareUrl = 'https://picfit.ai/share/' . $shareToken;
 $imageUrl = $generation['result_url'];
 
-// Handle CDN URLs and fallback to local URLs
-if ($imageUrl) {
-    if (str_starts_with($imageUrl, 'https://cdn.picfit.ai/')) {
-        // CDN URL - check if CDN is working, otherwise fallback to local
-        $localPath = str_replace('https://cdn.picfit.ai/generated/', '/generated/', $imageUrl);
-        $localFile = __DIR__ . $localPath;
-
-        if (file_exists($localFile)) {
-            // Use local URL instead of CDN for now
-            $imageUrl = 'https://picfit.ai' . $localPath;
-        }
-    } elseif (!str_starts_with($imageUrl, 'http')) {
-        // Relative URL - make it absolute
-        $imageUrl = 'https://picfit.ai/' . ltrim($imageUrl, '/');
-    }
-}
+// Use CDN service for image URL
+$imageUrl = CDNService::getImageUrl($generation['result_url']);
 
 // Create dedicated image URLs for different platforms
 $twitterImageUrl = 'https://picfit.ai/api/twitter_image.php?token=' . urlencode($shareToken);
@@ -120,7 +106,7 @@ $whatsappImageUrl = 'https://picfit.ai/api/whatsapp_image.php?token=' . urlencod
 error_log("Share page image URL: " . $imageUrl);
 
 // Additional debug - check if file exists locally
-$localImagePath = str_replace('https://picfit.ai/', __DIR__ . '/', $imageUrl);
+$localImagePath = str_replace(['https://cdn.picfit.ai/', 'https://picfit.ai/'], __DIR__ . '/', $imageUrl);
 if (file_exists($localImagePath)) {
     error_log("Image file exists locally: " . $localImagePath . " (Size: " . filesize($localImagePath) . " bytes)");
 } else {
