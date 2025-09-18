@@ -7,11 +7,13 @@ require_once __DIR__ . '/CDNService.php';
 
 class AIService {
     private string $geminiApiKey;
+    private string $openaiApiKey;
 
     public function __construct() {
         $this->geminiApiKey = Config::get('gemini_api_key', '');
-        if (empty($this->geminiApiKey)) {
-            throw new Exception('Gemini API key not configured');
+        $this->openaiApiKey = Config::get('openai_api_key', '');
+        if (empty($this->geminiApiKey) && empty($this->openaiApiKey)) {
+            throw new Exception('No AI API keys configured');
         }
     }
 
@@ -305,9 +307,371 @@ Generate only the final image.";
     }
 
     /**
+     * Generate sign image with Gemini using text-only prompt (Nano Banana)
+     * Used specifically for signs generator
+     */
+    public function generateSignWithGemini(string $prompt, int $width = 1024, int $height = 1024): string {
+        if (empty($this->geminiApiKey)) {
+            throw new Exception('Gemini API key not configured');
+        }
+
+        // API request with text-only prompt for image generation
+        $requestData = [
+            'contents' => [[
+                'parts' => [
+                    ['text' => $prompt]
+                ]
+            ]],
+            'generationConfig' => [
+                'temperature' => 0.7,
+                'maxOutputTokens' => 8192
+            ]
+        ];
+
+        Logger::info('AIService - Making Gemini API request for text-to-image generation');
+
+        $response = $this->makeGeminiRequest($requestData);
+
+        // Extract image from response
+        if (isset($response['candidates'][0]['content']['parts'])) {
+            foreach ($response['candidates'][0]['content']['parts'] as $part) {
+                $imageData = $part['inline_data']['data'] ?? $part['inlineData']['data'] ?? null;
+                $mimeType = $part['inline_data']['mime_type'] ?? $part['inlineData']['mimeType'] ?? 'image/jpeg';
+
+                if ($imageData) {
+                    $filename = $this->saveGeneratedImage($imageData, $mimeType, 'sign');
+                    return CDNService::getImageUrl('/generated/' . $filename);
+                }
+            }
+        }
+
+        throw new Exception('No valid image returned from Gemini text-to-image API');
+    }
+
+    /**
+     * Generate sign image with Gemini (with image input - for signs feature)
+     */
+    public function generateSignWithGeminiAndImage(string $imageBase64, string $prompt, int $width = 1024, int $height = 1024): string {
+        if (empty($this->geminiApiKey)) {
+            throw new Exception('Gemini API key not configured');
+        }
+
+        // API request with image and prompt
+        $requestData = [
+            'contents' => [[
+                'parts' => [
+                    ['text' => $prompt],
+                    [
+                        'inline_data' => [
+                            'mime_type' => 'image/jpeg',
+                            'data' => $imageBase64
+                        ]
+                    ]
+                ]
+            ]],
+            'generationConfig' => [
+                'temperature' => 0.7,
+                'maxOutputTokens' => 8192
+            ]
+        ];
+
+        Logger::info('AIService - Making Gemini API request for generic generation');
+
+        $response = $this->makeGeminiRequest($requestData);
+
+        // Extract image from response
+        if (isset($response['candidates'][0]['content']['parts'])) {
+            foreach ($response['candidates'][0]['content']['parts'] as $part) {
+                $imageData = $part['inline_data']['data'] ?? $part['inlineData']['data'] ?? null;
+                $mimeType = $part['inline_data']['mime_type'] ?? $part['inlineData']['mimeType'] ?? 'image/jpeg';
+
+                if ($imageData) {
+                    $filename = $this->saveGeneratedImage($imageData, $mimeType, 'sign');
+                    return CDNService::getImageUrl('/generated/' . $filename);
+                }
+            }
+        }
+
+        throw new Exception('No valid image returned from Gemini API');
+    }
+
+    /**
+     * Extract text from image using Gemini OCR
+     */
+    public function extractTextFromImage(string $imageBase64): string {
+        if (empty($this->geminiApiKey)) {
+            throw new Exception('Gemini API key not configured');
+        }
+
+        $ocrPrompt = "Extract all text from this image. Return only the text content, no descriptions or explanations. If there is no text, return 'No text found'.";
+
+        // API request for OCR
+        $requestData = [
+            'contents' => [[
+                'parts' => [
+                    ['text' => $ocrPrompt],
+                    [
+                        'inline_data' => [
+                            'mime_type' => 'image/jpeg',
+                            'data' => $imageBase64
+                        ]
+                    ]
+                ]
+            ]],
+            'generationConfig' => [
+                'temperature' => 0.1,
+                'maxOutputTokens' => 1024
+            ]
+        ];
+
+        Logger::info('AIService - Making Gemini API request for OCR');
+
+        $response = $this->makeGeminiRequest($requestData);
+
+        // Extract text response
+        if (isset($response['candidates'][0]['content']['parts'])) {
+            foreach ($response['candidates'][0]['content']['parts'] as $part) {
+                if (isset($part['text'])) {
+                    $text = trim($part['text']);
+                    Logger::info('AIService - OCR completed', ['text_length' => strlen($text)]);
+                    return $text;
+                }
+            }
+        }
+
+        throw new Exception('No text response from Gemini OCR API');
+    }
+
+    /**
+     * Analyze image with Gemini and return text description/prompt
+     */
+    public function analyzeImageWithGemini(string $imageBase64, string $prompt): string {
+        if (empty($this->geminiApiKey)) {
+            throw new Exception('Gemini API key not configured');
+        }
+
+        // API request for image analysis (text output only)
+        $requestData = [
+            'contents' => [[
+                'parts' => [
+                    ['text' => $prompt],
+                    [
+                        'inline_data' => [
+                            'mime_type' => 'image/jpeg',
+                            'data' => $imageBase64
+                        ]
+                    ]
+                ]
+            ]],
+            'generationConfig' => [
+                'temperature' => 0.7,
+                'maxOutputTokens' => 2048
+            ]
+        ];
+
+        Logger::info('AIService - Making Gemini API request for image analysis');
+
+        $response = $this->makeGeminiRequest($requestData);
+
+        // Extract text response
+        if (isset($response['candidates'][0]['content']['parts'])) {
+            foreach ($response['candidates'][0]['content']['parts'] as $part) {
+                if (isset($part['text'])) {
+                    $text = trim($part['text']);
+                    Logger::info('AIService - Gemini analysis completed', ['text_length' => strlen($text)]);
+                    return $text;
+                }
+            }
+        }
+
+        throw new Exception('No valid text response from Gemini API');
+    }
+
+    /**
+     * Generate sign image with DALL-E (for signs generator)
+     */
+    public function generateSignWithDallE(string $prompt, int $width = 1024, int $height = 1024): string {
+        if (empty($this->openaiApiKey)) {
+            throw new Exception('OpenAI API key not configured');
+        }
+
+        // DALL-E 3 supports only specific sizes
+        $size = $this->getValidDallESize($width, $height);
+
+        $requestData = [
+            'model' => 'dall-e-3',
+            'prompt' => $prompt,
+            'size' => $size,
+            'quality' => 'standard',
+            'n' => 1
+        ];
+
+        $ch = curl_init('https://api.openai.com/v1/images/generations');
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($requestData),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $this->openaiApiKey
+            ],
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_SSL_VERIFYPEER => true
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            throw new Exception("OpenAI API cURL error: {$error}");
+        }
+
+        if ($httpCode !== 200) {
+            $errorData = json_decode($response, true);
+            $errorMessage = $errorData['error']['message'] ?? "HTTP {$httpCode}";
+            throw new Exception("OpenAI API error: {$errorMessage}");
+        }
+
+        $data = json_decode($response, true);
+        if (!isset($data['data'][0]['url'])) {
+            throw new Exception('No image URL returned from OpenAI API');
+        }
+
+        // Download and save the image
+        $imageUrl = $data['data'][0]['url'];
+        $imageContent = file_get_contents($imageUrl);
+
+        if ($imageContent === false) {
+            throw new Exception('Failed to download image from OpenAI');
+        }
+
+        // Save to generated folder with "sign" prefix
+        $generatedDir = __DIR__ . '/../generated';
+        if (!is_dir($generatedDir)) {
+            @mkdir($generatedDir, 0755, true);
+        }
+
+        $filename = 'sign_' . uniqid('', true) . '.png';
+        $filepath = $generatedDir . '/' . $filename;
+
+        if (file_put_contents($filepath, $imageContent) === false) {
+            throw new Exception('Failed to save generated image');
+        }
+
+        Logger::info('AIService - DALL-E sign image saved', [
+            'filename' => $filename,
+            'size' => $size
+        ]);
+
+        return CDNService::getImageUrl('/generated/' . $filename);
+    }
+
+    /**
+     * Generate image with OpenAI DALL-E
+     */
+    public function generateWithDallE(string $prompt, int $width = 1024, int $height = 1024): string {
+        if (empty($this->openaiApiKey)) {
+            throw new Exception('OpenAI API key not configured');
+        }
+
+        // DALL-E 3 supports only specific sizes
+        $size = $this->getValidDallESize($width, $height);
+
+        $requestData = [
+            'model' => 'dall-e-3',
+            'prompt' => $prompt,
+            'size' => $size,
+            'quality' => 'standard',
+            'n' => 1
+        ];
+
+        $ch = curl_init('https://api.openai.com/v1/images/generations');
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($requestData),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $this->openaiApiKey
+            ],
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_SSL_VERIFYPEER => true
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            throw new Exception("OpenAI API cURL error: {$error}");
+        }
+
+        if ($httpCode !== 200) {
+            $errorData = json_decode($response, true);
+            $errorMessage = $errorData['error']['message'] ?? "HTTP {$httpCode}";
+            throw new Exception("OpenAI API error: {$errorMessage}");
+        }
+
+        $data = json_decode($response, true);
+        if (!isset($data['data'][0]['url'])) {
+            throw new Exception('No image URL returned from OpenAI API');
+        }
+
+        // Download and save the image
+        $imageUrl = $data['data'][0]['url'];
+        $imageContent = file_get_contents($imageUrl);
+
+        if ($imageContent === false) {
+            throw new Exception('Failed to download image from OpenAI');
+        }
+
+        // Save to generated folder
+        $generatedDir = __DIR__ . '/../generated';
+        if (!is_dir($generatedDir)) {
+            @mkdir($generatedDir, 0755, true);
+        }
+
+        $filename = 'sign_' . uniqid('', true) . '.png';
+        $filepath = $generatedDir . '/' . $filename;
+
+        if (file_put_contents($filepath, $imageContent) === false) {
+            throw new Exception('Failed to save generated image');
+        }
+
+        Logger::info('AIService - DALL-E image saved', [
+            'filename' => $filename,
+            'size' => $size
+        ]);
+
+        return CDNService::getImageUrl('/generated/' . $filename);
+    }
+
+    /**
+     * Get valid DALL-E 3 size based on requested dimensions
+     */
+    private function getValidDallESize(int $width, int $height): string {
+        // DALL-E 3 supports: 1024x1024, 1024x1792, 1792x1024
+        $aspectRatio = $width / $height;
+
+        if ($aspectRatio > 1.4) {
+            // Landscape
+            return '1792x1024';
+        } elseif ($aspectRatio < 0.7) {
+            // Portrait
+            return '1024x1792';
+        } else {
+            // Square or close to square
+            return '1024x1024';
+        }
+    }
+
+    /**
      * Save generated image
      */
-    private function saveGeneratedImage(string $base64Data, string $mimeType): string {
+    private function saveGeneratedImage(string $base64Data, string $mimeType, string $prefix = 'fit'): string {
         $generatedDir = __DIR__ . '/../generated';
         if (!is_dir($generatedDir)) {
             @mkdir($generatedDir, 0755, true);
@@ -320,7 +684,7 @@ Generate only the final image.";
             default => 'jpg'
         };
 
-        $filename = uniqid('fit_', true) . '.' . $extension;
+        $filename = $prefix . '_' . uniqid('', true) . '.' . $extension;
         $filepath = $generatedDir . '/' . $filename;
 
         $imageData = base64_decode($base64Data);
