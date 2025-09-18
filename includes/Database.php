@@ -179,6 +179,75 @@ class Database {
                 rated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE CASCADE,
                 UNIQUE(generation_id, ip_address) -- One rating per IP per photo
+            )',
+
+            // Ad generation tables
+            'CREATE TABLE IF NOT EXISTS ad_campaigns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                campaign_name TEXT NOT NULL,
+                style_guide TEXT, -- JSON
+                status TEXT DEFAULT "processing",
+                error_message TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )',
+
+            // Ad concepts table
+            'CREATE TABLE IF NOT EXISTS ad_concepts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                concept_name TEXT NOT NULL,
+                concept_data TEXT, -- JSON with colors, style, mood, etc
+                image_url TEXT,
+                prompt_used TEXT,
+                uploaded_assets TEXT, -- JSON array of asset paths
+                status TEXT DEFAULT "generating",
+                is_archived INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )',
+
+            'CREATE TABLE IF NOT EXISTS ad_generations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campaign_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                ad_type TEXT NOT NULL, -- facebook_feed, instagram_story, etc
+                width INTEGER NOT NULL,
+                height INTEGER NOT NULL,
+                image_url TEXT,
+                with_text_url TEXT,
+                prompt_used TEXT,
+                status TEXT DEFAULT "processing",
+                processing_time INTEGER,
+                is_private INTEGER DEFAULT 1, -- 1 for private (default), 0 for public
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (campaign_id) REFERENCES ad_campaigns(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )',
+
+            // User ad folders tracking
+            'CREATE TABLE IF NOT EXISTS user_ad_folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL UNIQUE,
+                folder_path TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                last_cleanup TEXT,
+                total_files INTEGER DEFAULT 0,
+                total_size_bytes INTEGER DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )',
+
+            // Saved concepts for "Save for Later" functionality
+            'CREATE TABLE IF NOT EXISTS saved_concepts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                brand_name TEXT,
+                style_guide TEXT, -- JSON
+                image_path TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )'
         ];
         
@@ -225,7 +294,22 @@ class Database {
 
             // Indexes for cleanup operations
             'CREATE INDEX IF NOT EXISTS idx_background_jobs_cleanup ON background_jobs(status, started_at)',
-            'CREATE INDEX IF NOT EXISTS idx_generations_cleanup ON generations(status, created_at)'
+            'CREATE INDEX IF NOT EXISTS idx_generations_cleanup ON generations(status, created_at)',
+
+            // Ad generation indexes
+            'CREATE INDEX IF NOT EXISTS idx_ad_campaigns_user ON ad_campaigns(user_id, created_at)',
+            'CREATE INDEX IF NOT EXISTS idx_ad_campaigns_status ON ad_campaigns(status)',
+            'CREATE INDEX IF NOT EXISTS idx_ad_generations_campaign ON ad_generations(campaign_id)',
+            'CREATE INDEX IF NOT EXISTS idx_ad_generations_user ON ad_generations(user_id)',
+            'CREATE INDEX IF NOT EXISTS idx_ad_generations_private ON ad_generations(is_private)',
+            'CREATE INDEX IF NOT EXISTS idx_user_ad_folders_user ON user_ad_folders(user_id)',
+            'CREATE INDEX IF NOT EXISTS idx_user_ad_folders_cleanup ON user_ad_folders(last_cleanup)',
+
+            // Ad concepts indexes
+            'CREATE INDEX IF NOT EXISTS idx_ad_concepts_user ON ad_concepts(user_id, created_at)',
+            'CREATE INDEX IF NOT EXISTS idx_saved_concepts_user ON saved_concepts(user_id, created_at)',
+            'CREATE INDEX IF NOT EXISTS idx_ad_concepts_archived ON ad_concepts(is_archived)',
+            'CREATE INDEX IF NOT EXISTS idx_ad_concepts_status ON ad_concepts(status)'
         ];
         
         foreach ($indexes as $sql) {

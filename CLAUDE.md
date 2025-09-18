@@ -4,11 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-### Local Development Server
+**⚠️ PRODUCTION ENVIRONMENT WARNING ⚠️**
+This codebase is deployed on a DreamHost VPS at https://picfit.ai
+Always be cautious when making changes - this affects real users!
+
+### Local Development Server (for testing only)
 ```bash
 ./start-local.sh
 ```
-Starts PHP development server on http://localhost:8000 with proper configuration.
+Starts PHP development server on http://localhost:8000 with proper configuration. Creates necessary directories (data, generated, temp_jobs, api) and sets permissions.
 
 ### Configuration Setup
 ```bash
@@ -16,14 +20,15 @@ cp env.example .env
 # Edit .env with your API keys
 ```
 
-### Log Monitoring
+### Debugging & Monitoring
 ```bash
-./watch-logs.php
+php debug.php          # System health check and configuration validation
+./watch-logs.php      # Real-time log monitoring
 ```
 
-### Debugging
+### Manual Credit Management (Development)
 ```bash
-php debug.php
+php give-credits.php  # Give all users 100 credits for testing
 ```
 
 ## Architecture Overview
@@ -66,12 +71,85 @@ PicFit.ai is a PHP-based AI virtual try-on application designed for shared hosti
 5. **Database Logging** → Generation history and analytics
 
 ### Database Schema (SQLite)
-- **users**: OAuth user data, credit balances
-- **credit_transactions**: Purchase/usage history with Stripe integration
-- **generations**: AI generation requests, results, and processing times
-- **user_sessions**: Secure session data with CSRF tokens
-- **rate_limits**: Per-IP and per-user rate limiting data
+
+#### Core User Tables
+- **users**: OAuth and WhatsApp authentication, credit management
+  - `id`, `oauth_provider`, `oauth_id`, `email`, `phone_number`
+  - `name`, `avatar_url`, `credits_remaining`, `free_credits_used`
+  - `stripe_customer_id`, `subscription_status`, `subscription_plan`
+  - Unique constraints on email, phone, and OAuth provider combination
+
+- **whatsapp_otps**: WhatsApp OTP authentication
+  - `phone_number`, `otp_code`, `expires_at`, `verified`, `attempts`
+
+- **user_sessions**: Database-backed secure sessions
+  - `id`, `user_id`, `expires_at`
+  - Used for CSRF protection and session management
+
+#### Credit & Payment Tables
+- **credit_transactions**: All credit movements
+  - `user_id`, `type` (purchase/debit/refund/bonus), `credits`
+  - `stripe_session_id`, `stripe_payment_intent_id`
+  - Complete audit trail of credit usage
+
 - **webhook_events**: Stripe webhook deduplication
+  - `id` (Stripe event ID), `type`, `processed_at`
+  - Prevents duplicate webhook processing
+
+#### PicFit Outfit Generation Tables
+- **generations**: Virtual try-on generation records
+  - `user_id`, `status` (pending/processing/completed/failed)
+  - `input_data` (JSON), `input_hash` (for caching)
+  - `result_url`, `error_message`, `processing_time`
+  - `is_public` (0.5 credits) vs private (1 credit)
+  - `share_token` for public photo sharing
+
+- **user_photos**: Stored user photos for outfit generation
+  - `user_id`, `filename`, `original_name`, `file_path`
+  - `file_size`, `mime_type`, `is_primary`
+
+- **photo_ratings**: Public photo rating system
+  - `generation_id`, `rating` (+1/-1), `ip_address`
+  - One rating per IP per photo
+
+- **background_jobs**: Async job processing (deprecated)
+  - `job_id`, `user_id`, `job_type`, `job_data` (JSON)
+  - `status`, `progress`, `progress_stage`
+  - `input_hash` for idempotency
+
+#### Ad Generator Tables
+- **ad_campaigns**: Marketing campaign metadata
+  - `user_id`, `campaign_name`, `style_guide` (JSON)
+  - `status` (processing/completed/failed)
+  - Contains brand info, colors, messaging
+
+- **ad_generations**: Individual ad records
+  - `campaign_id`, `user_id`, `ad_type` (facebook_feed, instagram_story, etc)
+  - `width`, `height`, `image_url`, `with_text_url`
+  - `prompt_used`, `status`, `processing_time`
+  - `is_private` for access control
+
+- **ad_concepts**: Brand concept storage
+  - `user_id`, `concept_name`, `concept_data` (JSON)
+  - `image_url`, `prompt_used`, `uploaded_assets` (JSON)
+  - `is_archived` for organization
+
+- **user_ad_folders**: User-specific ad storage tracking
+  - `user_id`, `folder_path`, `last_cleanup`
+  - `total_files`, `total_size_bytes`
+  - Ensures secure file isolation
+
+#### Security & Performance Tables
+- **rate_limits**: Request throttling
+  - `id` (IP or user_id hash), `requests`, `window_start`
+  - Enforces: 100/hr per IP, 20/hr per user, 5 generations/5min
+
+#### Key Indexes for Performance
+- User lookups: `idx_users_email`, `idx_users_oauth`, `idx_users_phone`
+- Generation queries: `idx_generations_user`, `idx_generations_public`, `idx_generations_share_token`
+- Ad queries: `idx_ad_campaigns_user`, `idx_ad_generations_campaign`
+- Performance: `idx_generations_cache_lookup`, `idx_generations_gallery`
+- Cleanup: `idx_background_jobs_cleanup`, `idx_user_ad_folders_cleanup`
 
 ### Security Implementation
 - **Rate Limiting**: 100 requests/hour per IP, 20/hour per user, 5 generations per 5 minutes
@@ -95,7 +173,7 @@ The `Config` class loads from:
 
 ### Deployment Contexts
 - **Local Development**: Uses `.env` file and built-in PHP server
-- **DreamHost Shared Hosting**: Uses environment variables set in control panel
+- **DreamHost VPS**: Production environment using environment variables set in control panel
 
 ## Development Patterns
 
@@ -134,3 +212,154 @@ The application includes a debug interface at `debug.php` that shows:
 - Recent errors and logs
 
 Always test payment flows with Stripe test keys before production deployment.
+
+## Product Components
+
+### 1. PicFit Outfit Tool (Virtual Try-On)
+
+**Core Files:**
+- `generate.php` - Main interface and workflow orchestration
+- `includes/AIService.php` - AI generation service using Gemini API
+
+**Key Features:**
+- **Outfit Selection System**:
+  - Pre-loaded outfit collections (e.g., Emmy's red carpet looks)
+  - Custom outfit upload
+  - Cached outfit catalog for performance
+- **Person Photo Management**:
+  - Stored photo system via `UserPhotoService.php`
+  - Upload new photos with optional saving
+  - Primary photo selection
+- **Credit System**:
+  - 0.5 credits for public generations
+  - 1.0 credit for private generations
+  - Tier-based rate limiting (free: 3/hr, paid: 10/hr, premium: 20/hr)
+- **AI Processing Pipeline**:
+  - Image optimization (resize to 1024px max dimension, JPEG conversion)
+  - Single Gemini API call with combined prompt
+  - Direct processing (no background jobs)
+  - CDN integration for result delivery
+
+**Technical Details:**
+- Uses Gemini 2.5 Flash Image Preview model
+- Implements retry logic (3 attempts) for API resilience
+- Base64 image encoding for API transmission
+- Square format (1:1) output for consistency
+- Preserves facial features and body proportions from source photo
+
+### 2. PicFit Ad Generator (Marketing Material Creation)
+
+**Core Files:**
+- `figma-ad-generator.php` - Multi-step wizard interface with retro styling
+- `ad-randomizer.php` - Alternative quick-generation interface
+- `includes/AdGeneratorService.php` - Core ad generation logic
+- `view-campaign.php` - Campaign management and viewing
+- `serve-ad.php` - Secure ad image delivery
+
+**Key Features:**
+- **Multi-Platform Ad Sizes**:
+  - 25+ predefined sizes for all major platforms
+  - Facebook, Instagram, Twitter/X, LinkedIn, TikTok, YouTube, Pinterest
+  - Google Ads display formats
+  - Universal formats (landscape, portrait, square)
+- **Brand Asset Integration**:
+  - Figma design extraction via `FigmaService.php`
+  - Document parsing (PDF, DOC) via `DocumentParserService.php`
+  - Style guide persistence across campaigns
+- **Campaign Management**:
+  - Batch generation for multiple sizes
+  - Campaign organization and history
+  - Private user folders for security
+- **AI Generation**:
+  - Uses Gemini or OpenAI APIs
+  - Context-aware prompt generation based on platform
+  - Automatic text overlay capabilities
+  - Brand consistency across all sizes
+
+**Database Schema Extensions:**
+- `ad_campaigns` - Campaign metadata and style guides
+- `ad_generations` - Individual ad records with dimensions
+- `ad_templates` - Reusable templates (if enabled)
+
+### Shared Services
+- **Database.php**: SQLite database management with singleton pattern
+- **Session.php**: Secure authentication handling
+- **Config.php**: Environment configuration loader
+- **Logger.php**: Centralized logging system
+- **CDNService.php**: CDN integration for images
+- **StripeService.php**: Payment processing and webhooks
+- **UserPhotoService.php**: User photo management
+- **BackgroundJobService.php**: Asynchronous job processing
+
+## Important Directories
+
+- `generated/`: AI-generated images (web-accessible)
+- `user_photos/`: User uploaded photos (protected)
+- `temp_jobs/`: Background job temporary files (required for async processing)
+- `ad-generator/`: Ad generation assets and templates
+- `data/`: SQLite database files
+- `logs/`: Application logs
+- `cache/`: Cached data files
+
+## Deployment Notes
+
+### Production Environment - DreamHost VPS
+**IMPORTANT: This is a PRODUCTION environment on DreamHost VPS**
+- Live site at https://picfit.ai
+- Real users and real payments processing
+- Environment variables set via DreamHost control panel
+- SQLite database in `data/` directory
+- Background jobs processed via cron (if configured)
+- Uses `.htaccess` for URL rewriting and security
+- PHP-FPM configuration (not mod_php)
+
+### Required PHP Extensions
+- SQLite3
+- cURL
+- JSON
+- FileInfo
+- GD or ImageMagick (for image processing)
+
+### Production Considerations
+- **NEVER** enable debug output in production
+- **ALWAYS** test changes locally first
+- **DO NOT** commit API keys or sensitive data
+- **VERIFY** file permissions (755 for directories, 644 for files)
+- **CHECK** error logs at `logs/app_YYYY-MM-DD.log` before deploying changes
+- Generated content in `generated/` must have proper web-accessible permissions
+
+## Common Development Tasks
+
+### Adding New Outfit Collections
+1. Create subdirectory in `images/outfits/` with collection name
+2. Add collection metadata to `$featuredCollections` array in `generate.php:42`
+3. Clear cache file at `cache/outfit_collections_v2.json`
+
+### Testing AI Generation
+```bash
+# Check API configuration
+php debug.php
+
+# Monitor generation logs
+./watch-logs.php
+
+# Test with minimal credits
+php give-credits.php  # Gives 100 credits to all users
+```
+
+### Database Operations
+- Database auto-creates schema on first connection
+- Located at `data/app.sqlite`
+- Backup before schema changes: `cp data/app.sqlite data/app.sqlite.backup`
+
+### Debugging Failed Generations
+1. Check `logs/app_YYYY-MM-DD.log` for error details
+2. Verify API keys in `.env` or environment variables
+3. Check rate limits in database: `SELECT * FROM rate_limits`
+4. Test Gemini API directly: Use `debug.php` for validation
+
+### Performance Optimization
+- Outfit collections are cached for 1 hour
+- CDN handles image delivery (Cloudflare/BunnyCDN)
+- Direct processing eliminates job queue overhead
+- Image optimization reduces API payload size

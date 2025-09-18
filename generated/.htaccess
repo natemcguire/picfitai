@@ -1,6 +1,9 @@
 # Allow access to generated images
 Options -Indexes
 
+# Allow access to all files and subdirectories
+Require all granted
+
 # Enable CORS for social media crawlers
 <IfModule mod_headers.c>
     # Allow all origins to access images (needed for social media)

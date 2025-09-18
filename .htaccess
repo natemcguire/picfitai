@@ -45,6 +45,15 @@ DirectoryIndex index.php index.html
     # Share URL rewriting - /share/token -> /share.php?token=token
     RewriteRule ^share/([a-f0-9]{32})/?$ share.php?token=$1 [QSA,L]
 
+    # Clean URL for figma ad generator
+    RewriteRule ^figma-ad-generator/?$ figma-ad-generator.php [L,QSA]
+
+    # Clean URL for campaign viewing
+    RewriteRule ^campaign/([0-9]+)/?$ view-campaign.php?id=$1 [L,QSA]
+
+    # Secure ad serving with clean URLs
+    RewriteRule ^ad/([0-9]+)/(.+)$ serve-ad.php?campaign=$1&path=$2 [L,QSA]
+
     # Remove .php extension from URLs (only for existing files)
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -80,3 +89,4 @@ DirectoryIndex index.php index.html
     AddOutputFilterByType DEFLATE application/javascript
     AddOutputFilterByType DEFLATE application/x-javascript
 </IfModule>
+

@@ -42,6 +42,9 @@ class Config {
             // AI Generation
             'gemini_api_key' => getenv('GEMINI_API_KEY') ?: '',
             'openai_api_key' => getenv('OPENAI_API_KEY') ?: '',
+
+            // Figma Integration
+            'figma_api_key' => getenv('FIGMA_API_KEY') ?: '',
             
             // App settings
             'app_name' => 'PicFit.ai',
