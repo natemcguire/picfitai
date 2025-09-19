@@ -92,6 +92,8 @@ class AIService {
 
         The output should look like you are a professional photographer in a studio with a neutral background and good lighting. Make them look good in their new outfit. Try to maintain body type and style as best you can determine, but be flattering by default.
 
+        One hint: The two people will always have different faces, so you should completely ignore the face from the second photo, even if they look similar.
+
 Frame as a square fashion photo with natural outdoor lighting. Generate ONLY the final image, no text.";
 
         // API request
