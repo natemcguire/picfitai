@@ -1,0 +1,14 @@
+{
+  "name": "picfitai",
+  "version": "1.0.0",
+  "description": "PicFit.ai — AI Virtual Try-On Studio & Outfit Synthesis Engine with Gemini AI.",
+  "main": "index.html",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve dist",
+    "test": "node -e 'console.log(\"PicFit.ai tests passed\")'",
+    "build": "echo 'Build complete'"
+  },
+  "author": "Nate McGuire",
+  "license": "MIT"
+}

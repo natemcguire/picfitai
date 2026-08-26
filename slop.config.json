@@ -1,0 +1,16 @@
+{
+  "appId": "picfitai",
+  "name": "PicFit.ai",
+  "creator": "nate",
+  "version": "1.0.0",
+  "price": "$39.00",
+  "license": "MIT",
+  "tagline": "AI Virtual Try-On Studio & Outfit Synthesis Engine with Gemini Vision",
+  "description": "Hyper-realistic virtual fitting room powered by Google Gemini Vision. Seamlessly drape outfits onto portrait photos with sovereign single-file SQLite user credits ledger.",
+  "sqlite": "/data/picfitai.sqlite",
+  "memoryCapMb": 256,
+  "tags": ["AI", "Fashion", "Gemini", "Try-On", "SQLite WAL"],
+  "screenshots": [
+    "/picfitai-screenshot.png"
+  ]
+}

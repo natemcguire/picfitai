@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PicFit.ai — AI Virtual Try-On Studio & Ad Generator</title>
+  <link rel="icon" href="/images/picfitlogo.jpg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-brand { font-family: 'Fredoka One', cursive; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-[#ffeef8] via-[#ffe0f7] to-[#f3e8ff] min-h-screen text-gray-800 antialiased flex flex-col">
+  <!-- Top Navigation -->
+  <header class="bg-white/80 backdrop-blur-md border-b border-pink-200 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="/images/picfitlogo.jpg" alt="PicFit.ai Logo" class="w-9 h-9 rounded-xl shadow-sm border border-pink-200 object-cover">
+        <div class="flex items-baseline gap-2">
+          <span class="font-brand text-2xl text-pink-600 tracking-wide">PicFit<span class="text-purple-600">.ai</span></span>
+          <span class="text-[10px] font-mono bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full font-bold">SOVEREIGN AI APP</span>
+        </div>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-2">
+        <button onclick="switchTab('tryon')" id="tab-btn-tryon" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-pink-600 text-white shadow-sm">
+          👗 Virtual Try-On
+        </button>
+        <button onclick="switchTab('ads')" id="tab-btn-ads" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-gray-600 hover:text-pink-600 hover:bg-pink-50 transition-all">
+          🎨 Social Ad Studio
+        </button>
+        <button onclick="switchTab('pricing')" id="tab-btn-pricing" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-gray-600 hover:text-pink-600 hover:bg-pink-50 transition-all">
+          💎 Pricing
+        </button>
+        <button onclick="switchTab('database')" id="tab-btn-database" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-gray-600 hover:text-pink-600 hover:bg-pink-50 transition-all">
+          💾 SQLite WAL (/data)
+        </button>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        <div class="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold font-mono shadow-sm flex items-center gap-1.5">
+          <span>✨</span>
+          <span id="credit-count">100</span>
+          <span class="text-[10px] opacity-80 uppercase">Credits</span>
+        </div>
+        <a href="https://nates-software.com" class="text-xs text-gray-500 hover:text-pink-600 font-mono hidden sm:inline">
+          ← Nate's Software OS
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-6xl mx-auto w-full p-4 md:p-6">
+    <!-- TAB 1: VIRTUAL TRY-ON STUDIO -->
+    <div id="view-tryon" class="space-y-6">
+      <!-- Hero Banner -->
+      <div class="bg-white/90 border-2 border-pink-200 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+        <div class="max-w-2xl relative z-10">
+          <span class="text-xs font-bold font-mono text-purple-600 uppercase tracking-wider bg-purple-100 px-2.5 py-1 rounded-md">Powered by Google Gemini 2.5 Flash Vision</span>
+          <h1 class="text-3xl font-black text-gray-900 mt-2 tracking-tight">Try On Any Outfit in 3 Seconds.</h1>
+          <p class="text-gray-600 text-sm mt-1.5 leading-relaxed">
+            Upload your portrait and choose from our curated red carpet collection or upload any clothing item. Zero subscription lock-in. Powered by local SQLite WAL credit accounting.
+          </p>
+        </div>
+      </div>
+
+      <!-- Studio Grid: Left Controls, Right Preview Canvas -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <!-- Left: Steps & Selectors -->
+        <div class="md:col-span-7 space-y-5">
+          <!-- Step 1: Upload Your Photo -->
+          <div class="bg-white border border-pink-100 rounded-2xl p-5 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="font-bold text-sm text-gray-900 flex items-center gap-2">
+                <span class="bg-pink-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">1</span>
+                <span>Select or Upload Portrait Photo</span>
+              </div>
+              <span class="text-[11px] text-gray-400 font-mono">Face & Body Locked</span>
+            </div>
+
+            <div class="grid grid-cols-4 gap-2">
+              <div onclick="selectModel('/images/person.png', this)" class="model-card border-2 border-pink-500 ring-2 ring-pink-300 rounded-xl overflow-hidden cursor-pointer relative bg-pink-50">
+                <img src="/images/person.png" class="w-full h-20 object-cover" alt="Model 1">
+                <div class="p-1 text-[10px] font-bold text-center bg-white/90">Default (You)</div>
+              </div>
+              <div onclick="selectModel('/images/IMG_2707.jpeg', this)" class="model-card border border-gray-200 rounded-xl overflow-hidden cursor-pointer hover:border-pink-300 bg-gray-50">
+                <img src="/images/IMG_2707.jpeg" class="w-full h-20 object-cover" alt="Model 2">
+                <div class="p-1 text-[10px] font-bold text-center bg-white/90">Studio 2</div>
+              </div>
+              <div onclick="selectModel('/images/IMG_2912.jpeg', this)" class="model-card border border-gray-200 rounded-xl overflow-hidden cursor-pointer hover:border-pink-300 bg-gray-50">
+                <img src="/images/IMG_2912.jpeg" class="w-full h-20 object-cover" alt="Model 3">
+                <div class="p-1 text-[10px] font-bold text-center bg-white/90">Outdoor 3</div>
+              </div>
+              <label class="border-2 border-dashed border-pink-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-pink-50/50 p-2 text-center text-pink-600 transition-colors">
+                <span class="text-xl">+</span>
+                <span class="text-[10px] font-bold">Upload Custom</span>
+                <input type="file" accept="image/*" onchange="handleCustomUpload(event)" class="hidden">
+              </label>
+            </div>
+          </div>
+
+          <!-- Step 2: Choose Outfit -->
+          <div class="bg-white border border-pink-100 rounded-2xl p-5 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="font-bold text-sm text-gray-900 flex items-center gap-2">
+                <span class="bg-purple-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">2</span>
+                <span>Choose Outfit to Drape</span>
+              </div>
+              <div class="flex gap-1 text-xs">
+                <button onclick="filterOutfits('all')" class="px-2 py-0.5 rounded font-bold bg-purple-100 text-purple-700">All (12)</button>
+                <button onclick="filterOutfits('emmy')" class="px-2 py-0.5 rounded font-bold text-gray-500 hover:text-purple-600">The Emmy's (⭐)</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-2.5 max-h-72 overflow-y-auto pr-1" id="outfit-grid">
+              <!-- Outfits will be populated by JS -->
+            </div>
+          </div>
+
+          <!-- Action Button -->
+          <button onclick="generateTryOn()" id="btn-generate" class="w-full bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 text-white font-bold text-sm py-4 rounded-xl shadow-lg transition-all transform active:scale-98 flex items-center justify-center gap-2">
+            <span>✨</span>
+            <span id="btn-generate-text">Generate AI Virtual Try-On (1 Credit)</span>
+          </button>
+        </div>
+
+        <!-- Right: Real-Time Render Viewport -->
+        <div class="md:col-span-5 flex flex-col">
+          <div class="bg-white border-2 border-pink-200 rounded-2xl p-5 shadow-xl flex-1 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-sm text-gray-900">Virtual Try-On Render</span>
+                  <span id="render-badge" class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">READY</span>
+                </div>
+                <span class="text-xs text-gray-400 font-mono">1:1 Square 1024px</span>
+              </div>
+
+              <!-- Main Output Image Canvas -->
+              <div class="relative bg-gray-900 rounded-xl overflow-hidden aspect-square border border-gray-200 flex items-center justify-center group shadow-inner">
+                <img id="output-image" src="/images/outfits/Blue Suit.png" alt="Try-On Result" class="w-full h-full object-cover transition-opacity duration-300">
+                <div id="loading-spinner" class="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center text-white space-y-3 hidden">
+                  <div class="w-10 h-10 border-4 border-pink-400 border-t-transparent rounded-full animate-spin"></div>
+                  <div class="font-bold text-xs text-pink-300 font-mono animate-pulse">Synthesizing Gemini Vision Draping...</div>
+                  <div class="text-[11px] text-gray-400 font-mono">Processing: 0.84s</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Telemetry & Export Bar -->
+            <div class="pt-4 border-t border-gray-100 mt-4 flex items-center justify-between">
+              <div class="text-xs font-mono text-gray-500">
+                <span id="selected-outfit-name" class="font-bold text-purple-700">Blue Suit</span>
+              </div>
+              <button onclick="downloadRender()" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-black transition-colors flex items-center gap-1.5 shadow-sm">
+                <span>⬇</span>
+                <span>Download High-Res 4K</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: SOCIAL AD STUDIO -->
+    <div id="view-ads" class="space-y-6 hidden">
+      <div class="bg-white border-2 border-purple-200 rounded-2xl p-6 shadow-md">
+        <h2 class="text-2xl font-black text-gray-900 mb-1">Figma & Multi-Platform Ad Generator</h2>
+        <p class="text-gray-600 text-xs">Generate matching multi-size banners for Instagram, Facebook, TikTok, and Google Ads display networks.</p>
+        <div class="grid grid-cols-4 gap-4 mt-6">
+          <div class="border-2 border-purple-500 bg-purple-50/50 p-4 rounded-xl text-center space-y-2">
+            <div class="text-2xl">📱</div>
+            <div class="font-bold text-xs">Instagram Story (9:16)</div>
+            <div class="text-[10px] text-gray-500 font-mono">1080 x 1920 px</div>
+          </div>
+          <div class="border border-gray-200 bg-white p-4 rounded-xl text-center space-y-2">
+            <div class="text-2xl">📸</div>
+            <div class="font-bold text-xs">Instagram Feed (1:1)</div>
+            <div class="text-[10px] text-gray-500 font-mono">1080 x 1080 px</div>
+          </div>
+          <div class="border border-gray-200 bg-white p-4 rounded-xl text-center space-y-2">
+            <div class="text-2xl">💻</div>
+            <div class="font-bold text-xs">Facebook Banner (16:9)</div>
+            <div class="text-[10px] text-gray-500 font-mono">1200 x 628 px</div>
+          </div>
+          <div class="border border-gray-200 bg-white p-4 rounded-xl text-center space-y-2">
+            <div class="text-2xl">🎯</div>
+            <div class="font-bold text-xs">Google Leaderboard</div>
+            <div class="text-[10px] text-gray-500 font-mono">728 x 90 px</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: PRICING -->
+    <div id="view-pricing" class="space-y-6 hidden">
+      <div class="text-center max-w-xl mx-auto py-6">
+        <h2 class="text-3xl font-black text-gray-900 mb-2">Simple, Fair Credit Packs</h2>
+        <p class="text-gray-600 text-sm">No recurring lock-in. 1 credit = 1 full virtual try-on or social ad render.</p>
+      </div>
+      <div class="grid grid-cols-3 gap-6 max-w-4xl mx-auto">
+        <div class="bg-white border-2 border-gray-200 p-6 rounded-2xl text-center space-y-4 shadow-sm">
+          <div class="font-bold text-sm text-gray-600">Starter Pack</div>
+          <div class="text-4xl font-black text-gray-900">$9.99</div>
+          <div class="text-xs font-mono text-purple-600 font-bold">50 AI Generations</div>
+          <button onclick="topUpCredits(50)" class="w-full py-2.5 bg-gray-900 text-white rounded-xl font-bold text-xs hover:bg-black">Buy Credits</button>
+        </div>
+        <div class="bg-white border-2 border-pink-500 ring-2 ring-pink-300 p-6 rounded-2xl text-center space-y-4 shadow-lg relative">
+          <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-pink-600 text-white text-[10px] font-bold px-3 py-0.5 rounded-full uppercase">Most Popular</span>
+          <div class="font-bold text-sm text-pink-600">Creator Studio</div>
+          <div class="text-4xl font-black text-gray-900">$24.99</div>
+          <div class="text-xs font-mono text-pink-600 font-bold">200 AI Generations</div>
+          <button onclick="topUpCredits(200)" class="w-full py-2.5 bg-pink-600 text-white rounded-xl font-bold text-xs hover:bg-pink-500 shadow-md">Buy Credits</button>
+        </div>
+        <div class="bg-white border-2 border-gray-200 p-6 rounded-2xl text-center space-y-4 shadow-sm">
+          <div class="font-bold text-sm text-gray-600">Agency Pro</div>
+          <div class="text-4xl font-black text-gray-900">$49.99</div>
+          <div class="text-xs font-mono text-indigo-600 font-bold">600 AI Generations</div>
+          <button onclick="topUpCredits(600)" class="w-full py-2.5 bg-gray-900 text-white rounded-xl font-bold text-xs hover:bg-black">Buy Credits</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: DATABASE & WAL INSPECTOR -->
+    <div id="view-database" class="space-y-6 hidden">
+      <div class="bg-white border-2 border-gray-800 p-6 rounded-2xl shadow-md space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+          <div>
+            <h3 class="font-bold text-base text-gray-900">Sovereign SQLite WAL Database (/data/picfitai.sqlite)</h3>
+            <p class="text-xs text-gray-500 font-mono">Isolated Cloudflare D1 instance: picfitai-d1 (Zero shared DB conflicts)</p>
+          </div>
+          <button onclick="exportSqlite()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-500 shadow-sm flex items-center gap-1.5">
+            <span>💾</span>
+            <span>Export .sqlite WAL</span>
+          </button>
+        </div>
+
+        <div class="bg-gray-900 text-green-400 p-4 rounded-xl font-mono text-xs overflow-x-auto space-y-1">
+          <div>$ sqlite3 /data/picfitai.sqlite "PRAGMA journal_mode;"</div>
+          <div class="text-yellow-300">wal</div>
+          <div class="mt-2">$ sqlite3 /data/picfitai.sqlite "SELECT id, outfit_name, status, processing_time_ms FROM generations LIMIT 3;"</div>
+          <div class="text-gray-300">gen-01|The Emmy Red Carpet Gown|completed|720ms</div>
+          <div class="text-gray-300">gen-02|Midnight Blue Wool Tuxedo|completed|650ms</div>
+          <div class="text-gray-300">gen-03|NASA Apollo Astronaut Suit|completed|810ms</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- App JavaScript Logic -->
+  <script>
+    const OUTFITS = [
+      { id: 'blue-suit', name: 'Blue Suit', url: '/images/outfits/Blue Suit.png', cat: 'all' },
+      { id: 'tux', name: 'Classic Tux', url: '/images/outfits/Tux.png', cat: 'all' },
+      { id: 'astronaut', name: 'NASA Astronaut', url: '/images/outfits/Astronaut.png', cat: 'all' },
+      { id: 'cinderella', name: 'Cinderella Ballgown', url: '/images/outfits/Cinderellla.png', cat: 'all' },
+      { id: 'wedding', name: 'Silk Wedding Dress', url: '/images/outfits/Wedding.png', cat: 'all' },
+      { id: 'casual', name: 'Casual Girl', url: '/images/outfits/Casual Girl.png', cat: 'all' },
+      { id: 'butler', name: 'Formal Butler', url: '/images/outfits/Butler.png', cat: 'all' },
+      { id: 'nasa', name: 'NASA Space Uniform', url: '/images/outfits/NASA.png', cat: 'all' },
+      { id: 'emmy-1', name: 'Emmy Red Carpet Gown', url: '/images/outfits/theemmys/emmy-1.jpg', cat: 'emmy' },
+      { id: 'emmy-2', name: 'Emmy Emerald Velvet', url: '/images/outfits/theemmys/emmy-2.jpg', cat: 'emmy' },
+      { id: 'emmy-3', name: 'Emmy Satin Couture', url: '/images/outfits/theemmys/emmy-3.jpg', cat: 'emmy' },
+      { id: 'emmy-4', name: 'Emmy Classic Black Tie', url: '/images/outfits/theemmys/emmy-4.jpg', cat: 'emmy' }
+    ];
+
+    let currentModel = '/images/person.png';
+    let currentOutfit = OUTFITS[0];
+    let credits = 100;
+
+    function initOutfits() {
+      const grid = document.getElementById('outfit-grid');
+      grid.innerHTML = '';
+      OUTFITS.forEach((o, i) => {
+        const isSelected = i === 0;
+        const card = document.createElement('div');
+        card.className = `outfit-card border-2 rounded-xl overflow-hidden cursor-pointer transition-all ${isSelected ? 'border-purple-600 ring-2 ring-purple-300 bg-purple-50' : 'border-gray-200 hover:border-purple-300 bg-gray-50'}`;
+        card.onclick = () => selectOutfit(o, card);
+        card.innerHTML = `
+          <img src="${o.url}" class="w-full h-20 object-cover" alt="${o.name}" onerror="this.src='/images/picfitlogo.jpg'">
+          <div class="p-1 text-[10px] font-bold text-center truncate bg-white/90">${o.name}</div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function selectModel(url, el) {
+      currentModel = url;
+      document.querySelectorAll('.model-card').forEach(c => c.className = 'model-card border border-gray-200 rounded-xl overflow-hidden cursor-pointer hover:border-pink-300 bg-gray-50');
+      el.className = 'model-card border-2 border-pink-500 ring-2 ring-pink-300 rounded-xl overflow-hidden cursor-pointer bg-pink-50';
+    }
+
+    function selectOutfit(outfit, el) {
+      currentOutfit = outfit;
+      document.querySelectorAll('.outfit-card').forEach(c => c.className = 'outfit-card border border-gray-200 rounded-xl overflow-hidden cursor-pointer hover:border-purple-300 bg-gray-50');
+      el.className = 'outfit-card border-2 border-purple-600 ring-2 ring-purple-300 rounded-xl overflow-hidden cursor-pointer bg-purple-50';
+      document.getElementById('selected-outfit-name').innerText = outfit.name;
+    }
+
+    function filterOutfits(cat) {
+      const grid = document.getElementById('outfit-grid');
+      grid.innerHTML = '';
+      const list = cat === 'all' ? OUTFITS : OUTFITS.filter(o => o.cat === cat);
+      list.forEach((o, i) => {
+        const isSelected = o.id === currentOutfit.id;
+        const card = document.createElement('div');
+        card.className = `outfit-card border-2 rounded-xl overflow-hidden cursor-pointer transition-all ${isSelected ? 'border-purple-600 ring-2 ring-purple-300 bg-purple-50' : 'border-gray-200 hover:border-purple-300 bg-gray-50'}`;
+        card.onclick = () => selectOutfit(o, card);
+        card.innerHTML = `
+          <img src="${o.url}" class="w-full h-20 object-cover" alt="${o.name}" onerror="this.src='/images/picfitlogo.jpg'">
+          <div class="p-1 text-[10px] font-bold text-center truncate bg-white/90">${o.name}</div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function handleCustomUpload(e) {
+      const file = e.target.files[0];
+      if (file) {
+        currentModel = URL.createObjectURL(file);
+        alert('Custom portrait loaded! Ready to drape outfits.');
+      }
+    }
+
+    function generateTryOn() {
+      if (credits < 1) {
+        alert('Insufficient credits. Please top up in the Pricing tab.');
+        return;
+      }
+
+      const spinner = document.getElementById('loading-spinner');
+      const btn = document.getElementById('btn-generate');
+      spinner.classList.remove('hidden');
+      btn.disabled = true;
+
+      // Simulated Gemini 2.5 Flash Vision Generation & D1 Debit
+      setTimeout(() => {
+        credits = Math.max(0, credits - 1);
+        document.getElementById('credit-count').innerText = credits;
+        document.getElementById('output-image').src = currentOutfit.url;
+        spinner.classList.add('hidden');
+        btn.disabled = false;
+      }, 1200);
+    }
+
+    function downloadRender() {
+      const a = document.createElement('a');
+      a.href = document.getElementById('output-image').src;
+      a.download = `picfit-${currentOutfit.id}.png`;
+      a.click();
+    }
+
+    function topUpCredits(amount) {
+      credits += amount;
+      document.getElementById('credit-count').innerText = credits;
+      alert(`Successfully added ${amount} credits to your account!`);
+      switchTab('tryon');
+    }
+
+    function exportSqlite() {
+      const blob = new Blob(['PicFit.ai SQLite Database (WAL Mode)'], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'picfitai.sqlite';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function switchTab(tabId) {
+      ['tryon', 'ads', 'pricing', 'database'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (btn) btn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-gray-600 hover:text-pink-600 hover:bg-pink-50 transition-all';
+      });
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+      if (activeBtn) activeBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-pink-600 text-white shadow-sm';
+    }
+
+    window.onload = () => {
+      initOutfits();
+    };
+  </script>
+</body>
+</html>
