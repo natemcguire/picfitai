@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing - PicFit.ai</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #ffeef8 0%, #ffe0f7 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-top: 90px;
+        }
+
+        
+    .header-nav {
+        position: fixed;
+        top: 15px;
+        left: 20px;
+        right: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 10px 20px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .logo {
+        font-size: 28px;
+        font-weight: 700;
+        font-family: 'Fredoka One', cursive;
+        background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-decoration: none;
+        text-shadow: 0 4px 8px rgba(255, 107, 157, 0.2);
+    }
+
+    .nav-buttons {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+
+    .nav-btn {
+        padding: 12px 24px;
+        background: linear-gradient(45deg, #ff6b9d 0%, #ff8fab 50%, #ff6b9d 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 14px;
+        box-shadow: 0 6px 20px rgba(255, 107, 157, 0.3);
+        transition: all 0.3s ease;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+    }
+
+    .nav-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(255, 107, 157, 0.4);
+        background: linear-gradient(45deg, #ff8fab 0%, #ffafc9 50%, #ff8fab 100%);
+    }
+
+    .nav-btn.secondary {
+        background: linear-gradient(45deg, #4ecdc4 0%, #44a08d 50%, #4ecdc4 100%);
+        box-shadow: 0 6px 20px rgba(78, 205, 196, 0.3);
+    }
+
+    .nav-btn.secondary:hover {
+        background: linear-gradient(45deg, #5fd8cf 0%, #4ecdc4 50%, #5fd8cf 100%);
+        box-shadow: 0 8px 25px rgba(78, 205, 196, 0.4);
+    }
+
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .pricing-header h1 {
+            font-size: 2.4em;
+            font-family: 'Fredoka One', cursive;
+            background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .pricing-header p {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+        }
+
+        .plan-card {
+            border: 2px solid #eee;
+            border-radius: 20px;
+            padding: 35px 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            background: white;
+        }
+
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(255, 107, 157, 0.2);
+        }
+
+        .plan-card.featured {
+            border-color: #ff6b9d;
+            box-shadow: 0 10px 30px rgba(255, 107, 157, 0.25);
+            transform: scale(1.03);
+        }
+
+        .plan-card.featured::before {
+            content: 'MOST POPULAR';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff6b9d;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 4px 14px;
+            border-radius: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .plan-name {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .plan-price {
+            font-size: 2.6em;
+            font-weight: 800;
+            color: #2c3e50;
+            margin-bottom: 12px;
+        }
+
+        .plan-credits {
+            font-size: 1.1em;
+            color: #667eea;
+            font-weight: 700;
+            margin-bottom: 25px;
+        }
+
+        .plan-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(45deg, #ff6b9d, #ff8fab);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 1em;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 18px rgba(255, 107, 157, 0.3);
+        }
+
+        .plan-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 107, 157, 0.45);
+        }
+    </style>
+</head>
+<body>
+    
+<div class="header-nav">
+    <a href="/" class="logo">PicFit.ai</a>
+    <div class="nav-buttons">
+        <a href="/pricing.html" class="nav-btn secondary">Pricing</a>
+        <a href="/generate.html" class="nav-btn">Get Started</a>
+    </div>
+</div>
+
+
+    <div class="container">
+        <div class="pricing-header">
+            <h1>Simple, Fair Credit Packs</h1>
+            <p>1 credit = 1 full virtual try-on generation. Zero subscription lock-in.</p>
+        </div>
+
+        <div class="pricing-grid">
+            <div class="plan-card">
+                <div class="plan-name">Starter Pack</div>
+                <div class="plan-price">$9.99</div>
+                <div class="plan-credits">50 AI Generations</div>
+                <a href="/generate.html" class="plan-btn">Top Up 50 Credits</a>
+            </div>
+
+            <div class="plan-card featured">
+                <div class="plan-name" style="color:#ff6b9d;">Creator Studio</div>
+                <div class="plan-price" style="color:#ff6b9d;">$24.99</div>
+                <div class="plan-credits" style="color:#ff6b9d;">200 AI Generations</div>
+                <a href="/generate.html" class="plan-btn">Top Up 200 Credits</a>
+            </div>
+
+            <div class="plan-card">
+                <div class="plan-name">Agency Pro</div>
+                <div class="plan-price">$49.99</div>
+                <div class="plan-credits">600 AI Generations</div>
+                <a href="/generate.html" class="plan-btn">Top Up 600 Credits</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

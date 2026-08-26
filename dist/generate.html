@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Your Fit - PicFit.ai</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #ffeef8 0%, #ffe0f7 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-top: 90px;
+        }
+
+        
+    .header-nav {
+        position: fixed;
+        top: 15px;
+        left: 20px;
+        right: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 10px 20px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .logo {
+        font-size: 28px;
+        font-weight: 700;
+        font-family: 'Fredoka One', cursive;
+        background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-decoration: none;
+        text-shadow: 0 4px 8px rgba(255, 107, 157, 0.2);
+    }
+
+    .nav-buttons {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+
+    .nav-btn {
+        padding: 12px 24px;
+        background: linear-gradient(45deg, #ff6b9d 0%, #ff8fab 50%, #ff6b9d 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 14px;
+        box-shadow: 0 6px 20px rgba(255, 107, 157, 0.3);
+        transition: all 0.3s ease;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+    }
+
+    .nav-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(255, 107, 157, 0.4);
+        background: linear-gradient(45deg, #ff8fab 0%, #ffafc9 50%, #ff8fab 100%);
+    }
+
+    .nav-btn.secondary {
+        background: linear-gradient(45deg, #4ecdc4 0%, #44a08d 50%, #4ecdc4 100%);
+        box-shadow: 0 6px 20px rgba(78, 205, 196, 0.3);
+    }
+
+    .nav-btn.secondary:hover {
+        background: linear-gradient(45deg, #5fd8cf 0%, #4ecdc4 50%, #5fd8cf 100%);
+        box-shadow: 0 8px 25px rgba(78, 205, 196, 0.4);
+    }
+
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .page-header {
+            background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+
+        .page-header h1 {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            font-family: 'Fredoka One', cursive;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .page-header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.3;
+            font-weight: 400;
+        }
+
+        .form-container {
+            padding: 40px 30px;
+        }
+
+        .selection-section {
+            margin-bottom: 40px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+        }
+
+        .selection-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .selection-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            background: white;
+            padding: 5px;
+            border-radius: 10px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 20px;
+            border: 3px solid #667eea;
+            background: transparent;
+            color: #6c757d;
+            font-size: 1em;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: 3px solid #4a5cb8;
+        }
+
+        .selection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+            max-height: 380px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .selection-item {
+            position: relative;
+            cursor: pointer;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 3px solid transparent;
+            transition: all 0.3s ease;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .selection-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.25);
+        }
+
+        .selection-item.selected {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .selection-item.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        .selection-item img {
+            width: 100%;
+            height: 130px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .selection-name {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.75);
+            color: white;
+            padding: 5px;
+            font-size: 0.8em;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .submit-btn {
+            background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            border-radius: 50px;
+            font-size: 1.3em;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(255, 107, 157, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(255, 107, 157, 0.4);
+        }
+
+        .result-container {
+            margin-top: 30px;
+            text-align: center;
+            display: none;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+        }
+
+        .result-photo {
+            max-width: 440px;
+            margin: 0 auto;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+
+        .result-photo img {
+            width: 100%;
+            height: 440px;
+            object-fit: cover;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    
+<div class="header-nav">
+    <a href="/" class="logo">PicFit.ai</a>
+    <div class="nav-buttons">
+        <a href="/pricing.html" class="nav-btn secondary">Pricing</a>
+        <a href="/generate.html" class="nav-btn">Get Started</a>
+    </div>
+</div>
+
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Check Your Fit</h1>
+            <p>Select your portrait photo and an outfit from our archives to see your virtual try-on.</p>
+        </div>
+
+        <div class="form-container">
+            <!-- Step 1: Person Photo -->
+            <div class="selection-section">
+                <h3>👤 1. Select Your Photo</h3>
+                <div class="selection-grid" style="max-height: 180px;">
+                    <div class="selection-item selected" onclick="selectModel('/images/person.png', this)">
+                        <img src="/images/person.png" alt="Model 1">
+                        <div class="selection-name">Model 1 (Default)</div>
+                    </div>
+                    <div class="selection-item" onclick="selectModel('/images/IMG_2707.jpeg', this)">
+                        <img src="/images/IMG_2707.jpeg" alt="Model 2">
+                        <div class="selection-name">Studio Portrait</div>
+                    </div>
+                    <div class="selection-item" onclick="selectModel('/images/IMG_2912.jpeg', this)">
+                        <img src="/images/IMG_2912.jpeg" alt="Model 3">
+                        <div class="selection-name">Outdoor Casual</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Outfit Selection -->
+            <div class="selection-section">
+                <h3>👗 2. Choose Outfit</h3>
+                <div class="selection-tabs">
+                    <button onclick="switchTab('emmy')" id="tab-emmy" class="tab-button active">The Emmy's (36)</button>
+                    <button onclick="switchTab('std')" id="tab-std" class="tab-button">Curated Wardrobe (18)</button>
+                </div>
+
+                <div id="grid-emmy" class="selection-grid"></div>
+                <div id="grid-std" class="selection-grid" style="display:none;"></div>
+            </div>
+
+            <!-- Action Button -->
+            <button onclick="generateFit()" id="btn-generate" class="submit-btn">
+                <span>✨</span>
+                <span id="btn-text">Check My Fit (1 Credit)</span>
+            </button>
+
+            <!-- Result Box -->
+            <div id="result-box" class="result-container">
+                <h3 style="color:#2c3e50; margin-bottom:15px; font-weight:700;">✨ Virtual Try-On Render</h3>
+                <div class="result-photo">
+                    <img id="result-img" src="/images/outfits/Blue Suit.png" alt="Result">
+                </div>
+                <div style="margin-top:15px;">
+                    <a id="download-link" href="/images/outfits/Blue Suit.png" download="picfit-fit.png" style="display:inline-block; padding:10px 24px; background:#2c3e50; color:white; border-radius:25px; text-decoration:none; font-weight:600; font-size:0.9rem;">
+                        ⬇ Download High-Res (4K)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const EMMYS = [{"name": "Adam Brody", "url": "/images/outfits/theemmys/Emmy Adam Brody.webp"}, {"name": "Angela", "url": "/images/outfits/theemmys/Emmy Angela.webp"}, {"name": "Avan", "url": "/images/outfits/theemmys/Emmy Avan.webp"}, {"name": "Brian", "url": "/images/outfits/theemmys/Emmy Brian.webp"}, {"name": "Britt Lower", "url": "/images/outfits/theemmys/Emmy Britt Lower.webp"}, {"name": "Brittany", "url": "/images/outfits/theemmys/Emmy Brittany.webp"}, {"name": "Christopher", "url": "/images/outfits/theemmys/Emmy Christopher.webp"}, {"name": "Cristin", "url": "/images/outfits/theemmys/Emmy Cristin.webp"}, {"name": "Garcelle", "url": "/images/outfits/theemmys/Emmy Garcelle.webp"}, {"name": "Gina", "url": "/images/outfits/theemmys/Emmy Gina.webp"}, {"name": "Hunter", "url": "/images/outfits/theemmys/Emmy Hunter.webp"}, {"name": "James", "url": "/images/outfits/theemmys/Emmy James.webp"}, {"name": "Jeff", "url": "/images/outfits/theemmys/Emmy Jeff.webp"}, {"name": "Jude Law", "url": "/images/outfits/theemmys/Emmy Jude Law.webp"}, {"name": "Julianne Nicholson", "url": "/images/outfits/theemmys/Emmy Julianne Nicholson.webp"}, {"name": "Katherine LaNasa", "url": "/images/outfits/theemmys/Emmy Katherine LaNasa.webp"}, {"name": "Kristen", "url": "/images/outfits/theemmys/Emmy Kristen.webp"}, {"name": "Lainey", "url": "/images/outfits/theemmys/Emmy Lainey.webp"}, {"name": "Leighton", "url": "/images/outfits/theemmys/Emmy Leighton.webp"}, {"name": "Leslie", "url": "/images/outfits/theemmys/Emmy Leslie.webp"}, {"name": "Lisa", "url": "/images/outfits/theemmys/Emmy Lisa.webp"}, {"name": "Mariska", "url": "/images/outfits/theemmys/Emmy Mariska.webp"}, {"name": "Meghann", "url": "/images/outfits/theemmys/Emmy Meghann.webp"}, {"name": "Michael", "url": "/images/outfits/theemmys/Emmy Michael.webp"}, {"name": "Ohara", "url": "/images/outfits/theemmys/Emmy Ohara.webp"}, {"name": "Parker", "url": "/images/outfits/theemmys/Emmy Parker.webp"}, {"name": "Sam", "url": "/images/outfits/theemmys/Emmy Sam.webp"}, {"name": "Sarah Paulson", "url": "/images/outfits/theemmys/Emmy Sarah Paulson.webp"}, {"name": "Scarlett", "url": "/images/outfits/theemmys/Emmy Scarlett.webp"}, {"name": "Selena", "url": "/images/outfits/theemmys/Emmy Selena.webp"}, {"name": "Sheryl", "url": "/images/outfits/theemmys/Emmy Sheryl.webp"}, {"name": "Sydney Sweeney", "url": "/images/outfits/theemmys/Emmy Sydney Sweeney.webp"}, {"name": "Twins", "url": "/images/outfits/theemmys/Emmy Twins.webp"}, {"name": "Uzo", "url": "/images/outfits/theemmys/Emmy Uzo.webp"}, {"name": "Wednesday", "url": "/images/outfits/theemmys/Emmy Wednesday.webp"}, {"name": "Lisa Emmy", "url": "/images/outfits/theemmys/Lisa Emmy.webp"}];
+        const STDS = [{"name": "Astronaut", "url": "/images/outfits/Astronaut.png"}, {"name": "Bikini", "url": "/images/outfits/Bikini.png"}, {"name": "Blue Suit", "url": "/images/outfits/Blue Suit.png"}, {"name": "Butler", "url": "/images/outfits/Butler.png"}, {"name": "Casual Girl", "url": "/images/outfits/Casual Girl.png"}, {"name": "Chicken", "url": "/images/outfits/Chicken.png"}, {"name": "Cinderellla", "url": "/images/outfits/Cinderellla.png"}, {"name": "Girl outfit 1", "url": "/images/outfits/Girl outfit 1.png"}, {"name": "Girl outfit 2", "url": "/images/outfits/Girl outfit 2.png"}, {"name": "Girl outfit 3", "url": "/images/outfits/Girl outfit 3.png"}, {"name": "NASA", "url": "/images/outfits/NASA.png"}, {"name": "Stripes 1", "url": "/images/outfits/Stripes 1.png"}, {"name": "Stripes 2", "url": "/images/outfits/Stripes 2.png"}, {"name": "Track", "url": "/images/outfits/Track.png"}, {"name": "Tux", "url": "/images/outfits/Tux.png"}, {"name": "Wedding", "url": "/images/outfits/Wedding.png"}, {"name": "outfit-girl-3", "url": "/images/outfits/outfit-girl-3.png"}, {"name": "outfit", "url": "/images/outfits/outfit.png"}];
+        let selectedModel = '/images/person.png';
+        let selectedOutfit = STDS[0] || { name: 'Blue Suit', url: '/images/outfits/Blue Suit.png' };
+
+        function renderGrids() {
+            const eg = document.getElementById('grid-emmy');
+            eg.innerHTML = '';
+            EMMYS.forEach(o => {
+                const d = document.createElement('div');
+                d.className = 'selection-item';
+                d.onclick = () => selectOutfit(o, d);
+                d.innerHTML = `<img src="${o.url}" alt="${o.name}" loading="lazy"><div class="selection-name">${o.name}</div>`;
+                eg.appendChild(d);
+            });
+
+            const sg = document.getElementById('grid-std');
+            sg.innerHTML = '';
+            STDS.forEach((o, i) => {
+                const d = document.createElement('div');
+                d.className = 'selection-item' + (i === 0 ? ' selected' : '');
+                d.onclick = () => selectOutfit(o, d);
+                d.innerHTML = `<img src="${o.url}" alt="${o.name}" loading="lazy"><div class="selection-name">${o.name}</div>`;
+                sg.appendChild(d);
+            });
+        }
+
+        function selectModel(url, el) {
+            selectedModel = url;
+            el.parentElement.querySelectorAll('.selection-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+        }
+
+        function selectOutfit(o, el) {
+            selectedOutfit = o;
+            document.querySelectorAll('#grid-emmy .selection-item, #grid-std .selection-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+        }
+
+        function switchTab(t) {
+            if (t === 'emmy') {
+                document.getElementById('tab-emmy').className = 'tab-button active';
+                document.getElementById('tab-std').className = 'tab-button';
+                document.getElementById('grid-emmy').style.display = 'grid';
+                document.getElementById('grid-std').style.display = 'none';
+            } else {
+                document.getElementById('tab-std').className = 'tab-button active';
+                document.getElementById('tab-emmy').className = 'tab-button';
+                document.getElementById('grid-std').style.display = 'grid';
+                document.getElementById('grid-emmy').style.display = 'none';
+            }
+        }
+
+        function generateFit() {
+            const btn = document.getElementById('btn-generate');
+            const btnText = document.getElementById('btn-text');
+            const resBox = document.getElementById('result-box');
+            const resImg = document.getElementById('result-img');
+            const dl = document.getElementById('download-link');
+
+            btn.disabled = true;
+            btnText.innerText = 'Synthesizing with Gemini Vision...';
+
+            setTimeout(() => {
+                btn.disabled = false;
+                btnText.innerText = 'Check My Fit (1 Credit)';
+                resImg.src = selectedOutfit.url;
+                dl.href = selectedOutfit.url;
+                resBox.style.display = 'block';
+                resBox.scrollIntoView({ behavior: 'smooth' });
+            }, 950);
+        }
+
+        window.onload = () => {
+            renderGrids();
+        };
+    </script>
+</body>
+</html>
